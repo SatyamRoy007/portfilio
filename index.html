@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AKHIL ROY | Living in the Pixel World</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --neon-cyan: #00f2ff;
+            --neon-green: #00ff41;
+            --dark-bg: #0a0a0a;
+            --pixel-blue: #4682B4;
+        }
+
+        body {
+            font-family: 'Space Mono', monospace;
+            background: var(--dark-bg);
+            color: #00ff41;
+            overflow-x: hidden;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+
+        /* Custom Cursor */
+        * { cursor: none !important; }
+        #cursor {
+            width: 16px;
+            height: 16px;
+            background: var(--neon-green);
+            position: fixed;
+            pointer-events: none;
+            z-index: 10000;
+            mix-blend-mode: difference;
+            transition: transform 0.1s ease;
+            image-rendering: pixelated;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 20px 40px;
+            background: rgba(10, 10, 10, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 2px solid var(--neon-green);
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 12px;
+            color: var(--neon-green);
+            text-shadow: 0 0 10px var(--neon-green);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            font-size: 10px;
+            letter-spacing: 2px;
+        }
+
+        .nav-links a {
+            color: var(--neon-green);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            font-family: 'Press Start 2P', monospace;
+        }
+
+        .nav-links a:hover {
+            color: var(--neon-cyan);
+            text-shadow: 0 0 10px var(--neon-cyan);
+        }
+
+        /* Hero Section with Canvas */
+        #hero-section {
+            position: relative;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #villageCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+        }
+
+        .hero-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .hero-title {
+            font-family: 'Press Start 2P', monospace;
+            font-size: clamp(24px, 6vw, 48px);
+            color: var(--neon-green);
+            text-shadow: 
+                0 0 10px var(--neon-green),
+                0 0 20px var(--neon-green),
+                0 0 30px var(--neon-green),
+                3px 3px 0 #000;
+            animation: glitchText 3s infinite;
+            margin-bottom: 20px;
+        }
+
+        .hero-subtitle {
+            font-size: clamp(10px, 2vw, 14px);
+            color: var(--neon-cyan);
+            letter-spacing: 4px;
+            text-shadow: 0 0 10px var(--neon-cyan);
+            margin-bottom: 30px;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            pointer-events: all;
+            flex-wrap: wrap;
+            padding: 0 20px;
+        }
+
+        .pixel-button {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 10px;
+            padding: 15px 30px;
+            background: transparent;
+            color: var(--neon-green);
+            border: 3px solid var(--neon-green);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            box-shadow: 
+                0 0 10px var(--neon-green),
+                inset 0 0 10px transparent;
+        }
+
+        .pixel-button:hover {
+            background: var(--neon-green);
+            color: #000;
+            box-shadow: 
+                0 0 20px var(--neon-green),
+                inset 0 0 20px var(--neon-green);
+            transform: scale(1.05);
+        }
+
+        /* Village Controls */
+        #village-controls {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid var(--neon-green);
+            padding: 20px;
+            z-index: 500;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 8px;
+            max-width: 250px;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+        }
+
+        #village-controls h3 {
+            color: var(--neon-cyan);
+            margin-bottom: 15px;
+            font-size: 10px;
+        }
+
+        .control-group {
+            margin: 15px 0;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--neon-green);
+        }
+
+        .control-group select,
+        .control-group button {
+            width: 100%;
+            background: #000;
+            color: var(--neon-green);
+            border: 2px solid var(--neon-green);
+            padding: 8px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 8px;
+            margin: 5px 0;
+        }
+
+        .control-group button:hover {
+            background: var(--neon-green);
+            color: #000;
+        }
+
+        .stat-display {
+            background: rgba(0, 255, 65, 0.1);
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 3px solid var(--neon-green);
+            font-size: 8px;
+        }
+
+        /* Content Sections */
+        .content-section {
+            padding: 100px 40px;
+            min-height: 100vh;
+            background: linear-gradient(180deg, #0a0a0a 0%, #1a1a1a 100%);
+            border-top: 2px solid var(--neon-green);
+            position: relative;
+        }
+
+        .section-title {
+            font-family: 'Press Start 2P', monospace;
+            font-size: clamp(20px, 4vw, 32px);
+            color: var(--neon-cyan);
+            margin-bottom: 60px;
+            text-align: center;
+            text-shadow: 0 0 10px var(--neon-cyan);
+        }
+
+        /* About Section */
+        .about-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .about-card {
+            background: rgba(0, 255, 65, 0.05);
+            border: 2px solid var(--neon-green);
+            padding: 30px;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
+        }
+
+        .about-card h3 {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 12px;
+            color: var(--neon-cyan);
+            margin-bottom: 20px;
+        }
+
+        .about-card p,
+        .about-card ul {
+            font-size: 14px;
+            line-height: 1.8;
+            color: #ccc;
+        }
+
+        .about-card ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .about-card ul li {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(0, 255, 65, 0.1);
+        }
+
+        .about-card ul li:before {
+            content: "> ";
+            color: var(--neon-green);
+        }
+
+        /* Projects Section */
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 40px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .project-card {
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid var(--neon-green);
+            padding: 30px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .project-card:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 65, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .project-card:hover:before {
+            left: 100%;
+        }
+
+        .project-card:hover {
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.4);
+            transform: translateY(-5px);
+        }
+
+        .project-number {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 10px;
+            color: var(--neon-cyan);
+            margin-bottom: 15px;
+        }
+
+        .project-card h3 {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 16px;
+            color: var(--neon-green);
+            margin-bottom: 20px;
+        }
+
+        .project-card p {
+            color: #aaa;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            font-size: 12px;
+        }
+
+        .project-link {
+            display: inline-block;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 9px;
+            color: var(--neon-cyan);
+            text-decoration: none;
+            border: 2px solid var(--neon-cyan);
+            padding: 10px 20px;
+            transition: all 0.3s ease;
+        }
+
+        .project-link:hover {
+            background: var(--neon-cyan);
+            color: #000;
+            box-shadow: 0 0 20px var(--neon-cyan);
+        }
+
+        /* Certifications Section */
+        .certs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .cert-badge {
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid var(--neon-green);
+            padding: 20px;
+            text-align: center;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 8px;
+            color: var(--neon-green);
+            transition: all 0.3s ease;
+        }
+
+        .cert-badge:hover {
+            background: var(--neon-green);
+            color: #000;
+            box-shadow: 0 0 20px var(--neon-green);
+            transform: scale(1.05);
+        }
+
+        /* Contact Section */
+        .contact-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(0, 0, 0, 0.8);
+            border: 3px solid var(--neon-cyan);
+            padding: 50px;
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.3);
+        }
+
+        .contact-form {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .form-group label {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 10px;
+            color: var(--neon-cyan);
+        }
+
+        .form-group input,
+        .form-group textarea {
+            background: #000;
+            border: 2px solid var(--neon-green);
+            color: var(--neon-green);
+            padding: 15px;
+            font-family: 'Space Mono', monospace;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.3);
+        }
+
+        .form-group textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+
+        .submit-button {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 12px;
+            padding: 20px;
+            background: transparent;
+            color: var(--neon-green);
+            border: 3px solid var(--neon-green);
+            transition: all 0.3s ease;
+        }
+
+        .submit-button:hover {
+            background: var(--neon-green);
+            color: #000;
+            box-shadow: 0 0 30px var(--neon-green);
+        }
+
+        /* Footer */
+        footer {
+            background: #000;
+            border-top: 2px solid var(--neon-green);
+            padding: 60px 40px;
+            text-align: center;
+        }
+
+        .footer-info {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 8px;
+            color: #666;
+            margin-bottom: 30px;
+            letter-spacing: 3px;
+        }
+
+        .social-links {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            flex-wrap: wrap;
+        }
+
+        .social-links a {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 10px;
+            color: var(--neon-green);
+            text-decoration: none;
+            border: 2px solid var(--neon-green);
+            padding: 15px 25px;
+            transition: all 0.3s ease;
+        }
+
+        .social-links a:hover {
+            background: var(--neon-green);
+            color: #000;
+            box-shadow: 0 0 20px var(--neon-green);
+        }
+
+        /* Tooltip */
+        #tooltip {
+            position: fixed;
+            background: rgba(0, 0, 0, 0.95);
+            color: var(--neon-green);
+            padding: 12px 16px;
+            border: 2px solid var(--neon-green);
+            font-family: 'Press Start 2P', monospace;
+            font-size: 8px;
+            pointer-events: none;
+            z-index: 10001;
+            max-width: 250px;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.5);
+            display: none;
+        }
+
+        /* Glitch Animation */
+        @keyframes glitchText {
+            0%, 100% { 
+                text-shadow: 
+                    0 0 10px var(--neon-green),
+                    0 0 20px var(--neon-green),
+                    0 0 30px var(--neon-green),
+                    3px 3px 0 #000;
+            }
+            25% { 
+                text-shadow: 
+                    -2px 0 var(--neon-cyan),
+                    2px 2px 0 #000;
+            }
+            50% { 
+                text-shadow: 
+                    2px 0 var(--neon-green),
+                    -2px -2px 0 #000;
+            }
+            75% { 
+                text-shadow: 
+                    -2px 0 var(--neon-cyan),
+                    2px 2px 0 #000;
+            }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--neon-green);
+            box-shadow: 0 0 10px var(--neon-green);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            #village-controls {
+                right: 10px;
+                left: 10px;
+                max-width: none;
+            }
+            
+            .content-section {
+                padding: 80px 20px;
+            }
+            
+            .about-grid,
+            .projects-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Custom Cursor -->
+    <div id="cursor"></div>
+
+    <!-- Navigation -->
+    <nav>
+        <div class="logo">AKHIL_ROY.SYS</div>
+        <div class="nav-links">
+            <a href="#hero-section">HOME</a>
+            <a href="#about">ABOUT</a>
+            <a href="#projects">PROJECTS</a>
+            <a href="#certs">CERTS</a>
+            <a href="#contact">CONTACT</a>
+        </div>
+    </nav>
+
+    <!-- Hero Section with Pixel Village -->
+    <section id="hero-section">
+        <canvas id="villageCanvas"></canvas>
+        
+        <div class="hero-overlay">
+            <h1 class="hero-title">AKHIL ROY</h1>
+            <p class="hero-subtitle">VIDEO EDITOR // DEV // CREATOR</p>
+            <div class="hero-buttons">
+                <a href="#projects" class="pixel-button">VIEW WORK</a>
+                <a href="mailto:satyam.roy02@gmail.com" class="pixel-button">CONTACT</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Village Controls -->
+    <div id="village-controls">
+        <h3>VILLAGE_CTRL</h3>
+        
+        <div class="stat-display">
+            <div>LOCATION: <span id="location">...</span></div>
+            <div>SEASON: <span id="currentSeason">...</span></div>
+            <div>TIME: <span id="localTime">...</span></div>
+        </div>
+        
+        <div class="control-group">
+            <button id="toggleAnimations">⏸️ PAUSE</button>
+            <button id="toggleParticles">❄️ EFFECTS</button>
+            <button id="toggleDayNight">🌙 NIGHT</button>
+        </div>
+        
+        <div class="control-group">
+            <label>SEASON:</label>
+            <select id="seasonOverride">
+                <option value="">AUTO</option>
+                <option value="spring">SPRING</option>
+                <option value="summer">SUMMER</option>
+                <option value="autumn">AUTUMN</option>
+                <option value="winter">WINTER</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label>WEATHER:</label>
+            <select id="weatherOverride">
+                <option value="">AUTO</option>
+                <option value="clear">CLEAR</option>
+                <option value="rain">RAIN</option>
+                <option value="snow">SNOW</option>
+                <option value="storm">STORM</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Tooltip -->
+    <div id="tooltip"></div>
+
+    <!-- About Section -->
+    <section id="about" class="content-section">
+        <h2 class="section-title">[ CORE_SYSTEM ]</h2>
+        <div class="about-grid">
+            <div class="about-card">
+                <h3>PHILOSOPHY</h3>
+                <p>"I don't follow trends; I simulate them before they happen. My life is a series of calculated risks and high-stakes execution. Whether I'm deep-diving into untapped data or exploring the outer edges of creative limits, I'm always moving at the speed of 'now.'"</p>
+            </div>
+            
+            <div class="about-card">
+                <h3>USER_INFO</h3>
+                <ul>
+                    <li>IDENTITY: AKHIL ROY</li>
+                    <li>ACCESS: ROOT_USER</li>
+                    <li>UPTIME: SINCE 19/05/2002</li>
+                    <li>STATUS: REDEFINING LIMITS</li>
+                    <li>LOCATION: INDIA</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Projects Section -->
+    <section id="projects" class="content-section">
+        <h2 class="section-title">[ REPOSITORIES ]</h2>
+        <div class="projects-grid">
+            <div class="project-card">
+                <div class="project-number">[ PROJECT_001 ]</div>
+                <h3>Sign Translator</h3>
+                <p> Python and html implementation for real-time gesture-to-text translation. Built with computer vision and deep learning to bridge communication gaps.</p>
+                <a href="https://satyamroy007.github.io/sign-language-/" class="project-link">ACCESS SOURCE →</a>
+            </div>
+            
+            <div class="project-card">
+                <div class="project-number">[ PROJECT_002 ]</div>
+                <h3>Village Life</h3>
+                <p>High-fidelity web experience focusing on creative storytelling and HTML5/CSS3 mastery. An immersive journey through pixel-perfect design and animation that are very Interactive.</p>
+                
+                <a href="https://satyamroy007.github.io/village-life/" class="project-link">ACCESS SOURCE →</a>
+            </div>
+            
+            <div class="project-card">
+                <div class="project-number">[ PROJECT_003 ]</div>
+                <h3>Pixel Village Portfolio</h3>
+                <p>Interactive living world combining portfolio showcase with procedural generation, seasonal dynamics, and real-time weather simulation in pure JavaScript.</p>
+                <a href="#" class="project-link">YOU ARE HERE →</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Certifications Section -->
+    <section id="certs" class="content-section">
+        <h2 class="section-title">[ CERTIFICATIONS.EXE ]</h2>
+        <div class="certs-grid">
+            <div class="cert-badge">✓ VIDEO EDITOR</div>
+            <div class="cert-badge">✓ GOOGLE CLOUD</div>
+            <div class="cert-badge">✓ PYTHON DATA SCI</div>
+            <div class="cert-badge">✓ TENSORFLOW</div>
+            <div class="cert-badge">✓ AWS CLOUD9</div>
+            <div class="cert-badge">✓ GEN-AI ANALYTICS</div>
+            <div class="cert-badge">✓ KERAS DEEP LEARNING</div>
+            <div class="cert-badge">✓ SEO STRATEGY</div>
+            <div class="cert-badge">✓ BRAND MARKETING</div>
+            <div class="cert-badge">✓ FB ADS INSIGHTS</div>
+            <div class="cert-badge">✓ CLOUD NATIVE DEV</div>
+            <div class="cert-badge">✓ SOFTWARE ENG</div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="content-section">
+        <h2 class="section-title">[ SECURE_INQUIRY ]</h2>
+        <div class="contact-container">
+            <form id="contactForm" class="contact-form">
+                <div class="form-group">
+                    <label>IDENT_NAME:</label>
+                    <input type="text" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>EMAIL_ADDR:</label>
+                    <input type="email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>MESSAGE_PAYLOAD:</label>
+                    <textarea required></textarea>
+                </div>
+                
+                <button type="submit" class="submit-button">EXECUTE_SEND</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p class="footer-info">AKHIL ROY // SYSTEM_INIT_2002 // +91 9521416108</p>
+        <div class="social-links">
+            <a href="https://www.linkedin.com/in/akhil-roy-bb0908234/">LINKEDIN</a>
+            <a href="https://www.instagram.com/ideleo007">INSTAGRAM</a>
+            <a href="https://github.com/satyamroy007">GITHUB</a>
+        </div>
+    </footer>
+
+    <script>
+        // Custom Cursor
+        const cursor = document.getElementById('cursor');
+        document.addEventListener('mousemove', e => {
+            cursor.style.left = e.clientX - 8 + 'px';
+            cursor.style.top = e.clientY - 8 + 'px';
+        });
+
+        document.querySelectorAll('a, button, select').forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                cursor.style.transform = 'scale(2)';
+                cursor.style.background = 'var(--neon-cyan)';
+            });
+            el.addEventListener('mouseleave', () => {
+                cursor.style.transform = 'scale(1)';
+                cursor.style.background = 'var(--neon-green)';
+            });
+        });
+
+        // Pixel Village Implementation
+        class PixelVillage {
+            constructor() {
+                this.canvas = document.getElementById('villageCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.setupCanvas();
+                
+                this.currentSeason = 'spring';
+                this.timeOfDay = 'morning';
+                this.isNightMode = false;
+                this.location = null;
+                this.animationsEnabled = true;
+                this.particlesEnabled = true;
+                this.currentWeather = 'clear';
+                
+                this.gameTime = 0;
+                this.particles = [];
+                this.birds = [];
+                this.villagers = [];
+                this.animals = [];
+                this.buildings = [];
+                this.clouds = [];
+                this.mountainPeaks = [];
+                this.trees = [];
+                this.weatherEffects = [];
+                
+                this.mousePos = { x: 0, y: 0 };
+                
+                this.init();
+            }
+
+            setupCanvas() {
+                const resize = () => {
+                    this.canvas.width = window.innerWidth;
+                    this.canvas.height = window.innerHeight;
+                    this.ctx.imageSmoothingEnabled = false;
+                    this.generateTerrain();
+                };
+                
+                resize();
+                window.addEventListener('resize', resize);
+                
+                this.canvas.addEventListener('mousemove', (e) => {
+                    this.mousePos = { x: e.clientX, y: e.clientY };
+                    this.checkHover();
+                });
+                
+                this.canvas.addEventListener('click', (e) => {
+                    this.handleClick(e.clientX, e.clientY);
+                });
+            }
+
+            generateTerrain() {
+                this.mountainPeaks = [];
+                this.trees = [];
+                
+                const peaks = 12;
+                for (let i = 0; i <= peaks; i++) {
+                    const x = (this.canvas.width / peaks) * i;
+                    const baseHeight = this.canvas.height * 0.35;
+                    const noise = Math.sin(i * 0.7) * 60 + Math.cos(i * 1.2) * 30;
+                    this.mountainPeaks.push({ x, y: baseHeight - 80 - noise });
+                }
+                
+                const treeCount = 20;
+                for (let i = 0; i < treeCount; i++) {
+                    this.trees.push({
+                        x: Math.random() * this.canvas.width,
+                        y: this.canvas.height * (0.3 + Math.random() * 0.25),
+                        size: Math.random() * 25 + 15,
+                        type: Math.floor(Math.random() * 3),
+                        swayOffset: Math.random() * Math.PI * 2
+                    });
+                }
+            }
+
+            async init() {
+                this.generateTerrain();
+                this.setupEventListeners();
+                await this.detectLocation();
+                this.createGameObjects();
+                this.startGameLoop();
+                this.startTimeUpdate();
+            }
+
+            setupEventListeners() {
+                document.getElementById('toggleAnimations').addEventListener('click', () => {
+                    this.toggleAnimations();
+                });
+                
+                document.getElementById('toggleParticles').addEventListener('click', () => {
+                    this.toggleParticles();
+                });
+                
+                document.getElementById('toggleDayNight').addEventListener('click', () => {
+                    this.toggleDayNight();
+                });
+                
+                document.getElementById('seasonOverride').addEventListener('change', (e) => {
+                    if (e.target.value) {
+                        this.currentSeason = e.target.value;
+                        this.updateSeasonalElements();
+                    } else {
+                        this.determineSeason();
+                    }
+                });
+                
+                document.getElementById('weatherOverride').addEventListener('change', (e) => {
+                    if (e.target.value) {
+                        this.currentWeather = e.target.value;
+                        this.updateWeatherEffects();
+                    } else {
+                        this.determineWeather();
+                    }
+                });
+            }
+
+            async detectLocation() {
+                try {
+                    const position = await new Promise((resolve, reject) => {
+                        if (!navigator.geolocation) {
+                            reject(new Error('Geolocation not supported'));
+                        }
+                        navigator.geolocation.getCurrentPosition(resolve, reject, {
+                            timeout: 5000,
+                            enableHighAccuracy: false
+                        });
+                    });
+                    
+                    this.location = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        city: 'Your Location',
+                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                    };
+                } catch (error) {
+                    this.location = {
+                        latitude: 21.1702,
+                        longitude: 72.8311,
+                        city: 'India',
+                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                    };
+                }
+                
+                this.determineSeason();
+                this.determineWeather();
+                this.updateUI();
+            }
+
+            determineSeason() {
+                const now = new Date();
+                const month = now.getMonth();
+                const isNorthern = this.location.latitude >= 0;
+                
+                let season;
+                if (isNorthern) {
+                    if (month >= 2 && month <= 4) season = 'spring';
+                    else if (month >= 5 && month <= 7) season = 'summer';
+                    else if (month >= 8 && month <= 10) season = 'autumn';
+                    else season = 'winter';
+                } else {
+                    if (month >= 2 && month <= 4) season = 'autumn';
+                    else if (month >= 5 && month <= 7) season = 'winter';
+                    else if (month >= 8 && month <= 10) season = 'spring';
+                    else season = 'summer';
+                }
+                
+                this.currentSeason = season;
+                this.updateSeasonalElements();
+            }
+
+            determineWeather() {
+                const weatherOptions = {
+                    spring: ['clear', 'rain', 'clear'],
+                    summer: ['clear', 'clear', 'storm'],
+                    autumn: ['clear', 'rain', 'clear'],
+                    winter: ['clear', 'snow', 'snow']
+                };
+                
+                const options = weatherOptions[this.currentSeason] || ['clear'];
+                this.currentWeather = options[Math.floor(Math.random() * options.length)];
+                this.updateWeatherEffects();
+            }
+
+            updateSeasonalElements() {
+                this.particles = [];
+                
+                if (this.currentSeason === 'winter' && this.particlesEnabled) {
+                    for (let i = 0; i < 60; i++) {
+                        this.particles.push({
+                            x: Math.random() * this.canvas.width,
+                            y: -Math.random() * this.canvas.height,
+                            vx: (Math.random() - 0.5) * 0.6,
+                            vy: Math.random() * 1 + 0.4,
+                            size: Math.random() * 5 + 2,
+                            type: 'snow'
+                        });
+                    }
+                } else if (this.currentSeason === 'autumn' && this.particlesEnabled) {
+                    for (let i = 0; i < 40; i++) {
+                        this.particles.push({
+                            x: Math.random() * this.canvas.width,
+                            y: -Math.random() * this.canvas.height,
+                            vx: (Math.random() - 0.5) * 1.2,
+                            vy: Math.random() * 0.8 + 0.3,
+                            size: Math.random() * 10 + 5,
+                            rotation: Math.random() * Math.PI * 2,
+                            rotationSpeed: (Math.random() - 0.5) * 0.1,
+                            color: ['#FF6B35', '#F7931E', '#FFD23F', '#8B4513'][Math.floor(Math.random() * 4)],
+                            type: 'leaf'
+                        });
+                    }
+                }
+            }
+
+            updateWeatherEffects() {
+                this.weatherEffects = [];
+                
+                if (this.currentWeather === 'rain' && this.particlesEnabled) {
+                    for (let i = 0; i < 80; i++) {
+                        this.weatherEffects.push({
+                            x: Math.random() * this.canvas.width,
+                            y: -Math.random() * this.canvas.height,
+                            vx: -1,
+                            vy: Math.random() * 6 + 4,
+                            type: 'rain'
+                        });
+                    }
+                } else if (this.currentWeather === 'snow' && this.particlesEnabled) {
+                    for (let i = 0; i < 100; i++) {
+                        this.weatherEffects.push({
+                            x: Math.random() * this.canvas.width,
+                            y: -Math.random() * this.canvas.height,
+                            vx: (Math.random() - 0.5) * 0.8,
+                            vy: Math.random() * 1.5 + 0.8,
+                            size: Math.random() * 4 + 2,
+                            type: 'snow'
+                        });
+                    }
+                } else if (this.currentWeather === 'storm' && this.particlesEnabled) {
+                    for (let i = 0; i < 150; i++) {
+                        this.weatherEffects.push({
+                            x: Math.random() * this.canvas.width,
+                            y: -Math.random() * this.canvas.height,
+                            vx: -Math.random() * 2 - 1,
+                            vy: Math.random() * 10 + 6,
+                            type: 'storm'
+                        });
+                    }
+                }
+            }
+
+            createGameObjects() {
+                const villagerTypes = [
+                    { name: 'Designer', activity: 'creating', color: '#9932CC' },
+                    { name: 'Developer', activity: 'coding', color: '#4682B4' },
+                    { name: 'Editor', activity: 'editing', color: '#FF6347' },
+                    { name: 'Marketer', activity: 'planning', color: '#32CD32' }
+                ];
+                
+                this.villagers = [];
+                villagerTypes.forEach((type, i) => {
+                    this.villagers.push({
+                        ...type,
+                        x: Math.random() * this.canvas.width * 0.7 + this.canvas.width * 0.15,
+                        y: this.canvas.height * 0.7 + Math.random() * 100,
+                        vx: (Math.random() - 0.5) * 0.4,
+                        size: 20,
+                        direction: Math.random() > 0.5 ? 1 : -1,
+                        animating: false,
+                        workTimer: Math.random() * 1000
+                    });
+                });
+                
+                const animalTypes = [
+                    { type: 'bird', size: 20, color: '#4682B4' },
+                    { type: 'cat', size: 18, color: '#696969' },
+                    { type: 'dog', size: 22, color: '#8B4513' },
+                    { type: 'rabbit', size: 16, color: '#DEB887' }
+                ];
+                
+                this.animals = [];
+                animalTypes.forEach(animal => {
+                    this.animals.push({
+                        ...animal,
+                        x: Math.random() * this.canvas.width * 0.6 + this.canvas.width * 0.2,
+                        y: this.canvas.height * 0.75 + Math.random() * 80,
+                        vx: (Math.random() - 0.5) * 0.5,
+                        vy: 0,
+                        moving: false
+                    });
+                });
+                
+                this.buildings = [
+                    { type: 'studio', x: this.canvas.width * 0.15, y: this.canvas.height * 0.5, width: 80, height: 60 },
+                    { type: 'lab', x: this.canvas.width * 0.4, y: this.canvas.height * 0.48, width: 90, height: 70 },
+                    { type: 'office', x: this.canvas.width * 0.7, y: this.canvas.height * 0.52, width: 75, height: 55 }
+                ];
+                
+                this.createClouds();
+                this.spawnBirds();
+            }
+
+            createClouds() {
+                this.clouds = [];
+                for (let i = 0; i < 5; i++) {
+                    this.clouds.push({
+                        x: Math.random() * this.canvas.width,
+                        y: Math.random() * this.canvas.height * 0.25 + 40,
+                        vx: Math.random() * 0.2 + 0.1,
+                        size: Math.random() * 60 + 40,
+                        opacity: Math.random() * 0.4 + 0.3
+                    });
+                }
+            }
+
+            spawnBirds() {
+                if (this.birds.length < 4 && Math.random() < 0.02) {
+                    const side = Math.random() > 0.5 ? -50 : this.canvas.width + 50;
+                    this.birds.push({
+                        x: side,
+                        y: Math.random() * this.canvas.height * 0.3 + 60,
+                        vx: (side < 0 ? 1 : -1) * (Math.random() * 2 + 1),
+                        vy: (Math.random() - 0.5) * 0.4,
+                        size: Math.random() * 6 + 5,
+                        wingFlap: 0,
+                        color: '#2F4F4F'
+                    });
+                }
+            }
+
+            handleClick(x, y) {
+                this.villagers.forEach(villager => {
+                    const dx = x - villager.x;
+                    const dy = y - villager.y;
+                    if (Math.sqrt(dx * dx + dy * dy) < villager.size) {
+                        villager.animating = true;
+                        villager.animTime = Date.now();
+                    }
+                });
+                
+                this.animals.forEach(animal => {
+                    const dx = x - animal.x;
+                    const dy = y - animal.y;
+                    if (Math.sqrt(dx * dx + dy * dy) < animal.size) {
+                        animal.moving = true;
+                        animal.moveTime = Date.now();
+                        animal.vx = (Math.random() - 0.5) * 4;
+                        animal.vy = -Math.random() * 3 - 1;
+                    }
+                });
+            }
+
+            checkHover() {
+                const tooltip = document.getElementById('tooltip');
+                let hovered = null;
+                
+                this.villagers.forEach(villager => {
+                    const dx = this.mousePos.x - villager.x;
+                    const dy = this.mousePos.y - villager.y;
+                    if (Math.sqrt(dx * dx + dy * dy) < villager.size && !hovered) {
+                        hovered = { type: 'villager', obj: villager };
+                    }
+                });
+                
+                if (hovered) {
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = Math.min(this.mousePos.x + 15, window.innerWidth - 200) + 'px';
+                    tooltip.style.top = Math.max(this.mousePos.y - 40, 10) + 'px';
+                    tooltip.textContent = `${hovered.obj.name} - ${hovered.obj.activity}`;
+                } else {
+                    tooltip.style.display = 'none';
+                }
+            }
+
+            getSeasonColors() {
+                const colors = {
+                    spring: { sky: ['#87CEEB', '#98FB98'], ground: '#90EE90', trees: '#228B22' },
+                    summer: { sky: ['#00BFFF', '#87CEEB'], ground: '#32CD32', trees: '#006400' },
+                    autumn: { sky: ['#FFA500', '#FFD700'], ground: '#DAA520', trees: '#FF6347' },
+                    winter: { sky: ['#B0C4DE', '#F0F8FF'], ground: '#F0F8FF', trees: '#2F4F4F' }
+                };
+                return colors[this.currentSeason] || colors.spring;
+            }
+
+            drawBackground() {
+                const colors = this.getSeasonColors();
+                const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height * 0.7);
+                
+                let skyColors = colors.sky;
+                let groundColor = colors.ground;
+                
+                if (this.isNightMode) {
+                    skyColors = ['#1a1a3a', '#2c2c54'];
+                    groundColor = this.darkenColor(colors.ground);
+                }
+                
+                gradient.addColorStop(0, skyColors[0]);
+                gradient.addColorStop(0.6, skyColors[1] || skyColors[0]);
+                gradient.addColorStop(1, groundColor);
+                
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                this.drawMountains();
+                this.drawSunMoon();
+                this.drawClouds();
+                this.drawTrees();
+                this.drawGround();
+            }
+
+            drawMountains() {
+                this.ctx.fillStyle = this.isNightMode ? '#2c2c54' : '#708090';
+                this.ctx.globalAlpha = 0.7;
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, this.canvas.height * 0.4);
+                
+                this.mountainPeaks.forEach(peak => {
+                    this.ctx.lineTo(peak.x, peak.y);
+                });
+                
+                this.ctx.lineTo(this.canvas.width, this.canvas.height);
+                this.ctx.lineTo(0, this.canvas.height);
+                this.ctx.closePath();
+                this.ctx.fill();
+                
+                this.ctx.globalAlpha = 1;
+            }
+
+            drawSunMoon() {
+                const centerX = this.canvas.width * 0.8;
+                const centerY = this.canvas.height * 0.15;
+                const radius = 25;
+                
+                if (this.isNightMode) {
+                    this.ctx.fillStyle = '#FFFACD';
+                    this.ctx.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
+                    
+                    this.ctx.fillStyle = '#E6E6FA';
+                    this.ctx.fillRect(centerX - 10, centerY - 5, 8, 6);
+                    this.ctx.fillRect(centerX + 5, centerY + 8, 6, 5);
+                    
+                    this.drawStars();
+                } else {
+                    this.ctx.fillStyle = '#FFD700';
+                    this.ctx.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
+                    
+                    this.ctx.fillStyle = '#FFA500';
+                    const rays = 8;
+                    for (let i = 0; i < rays; i++) {
+                        const angle = (Math.PI * 2 / rays) * i;
+                        const rayX = centerX + Math.cos(angle) * (radius + 8);
+                        const rayY = centerY + Math.sin(angle) * (radius + 8);
+                        const rayEndX = centerX + Math.cos(angle) * (radius + 18);
+                        const rayEndY = centerY + Math.sin(angle) * (radius + 18);
+                        
+                        this.ctx.fillRect(rayX - 2, rayY - 2, 4, 4);
+                        this.ctx.fillRect(rayEndX - 1, rayEndY - 1, 2, 2);
+                    }
+                }
+            }
+
+            drawStars() {
+                this.ctx.fillStyle = '#FFFFFF';
+                for (let i = 0; i < 30; i++) {
+                    const x = (i * 137) % this.canvas.width;
+                    const y = (i * 91) % (this.canvas.height * 0.4);
+                    const twinkle = Math.sin(this.gameTime * 0.003 + i) > 0.5 ? 1 : 0.5;
+                    this.ctx.globalAlpha = twinkle;
+                    this.ctx.fillRect(x, y, 2, 2);
+                }
+                this.ctx.globalAlpha = 1;
+            }
+
+            drawClouds() {
+                this.clouds.forEach(cloud => {
+                    if (this.animationsEnabled) {
+                        cloud.x += cloud.vx;
+                        if (cloud.x > this.canvas.width + cloud.size) {
+                            cloud.x = -cloud.size;
+                        }
+                    }
+                    
+                    this.ctx.fillStyle = this.isNightMode ? 
+                        `rgba(100, 100, 130, ${cloud.opacity})` : 
+                        `rgba(255, 255, 255, ${cloud.opacity})`;
+                    
+                    for (let i = 0; i < 5; i++) {
+                        const partX = cloud.x + (i * cloud.size / 5);
+                        const partY = cloud.y + Math.sin(i) * 5;
+                        const partSize = cloud.size / 5 + 10;
+                        this.ctx.fillRect(partX, partY, partSize, partSize * 0.6);
+                    }
+                });
+            }
+
+            drawTrees() {
+                const colors = this.getSeasonColors();
+                const treeColor = this.isNightMode ? this.darkenColor(colors.trees) : colors.trees;
+                
+                this.trees.forEach(tree => {
+                    if (this.animationsEnabled) {
+                        tree.swayOffset += 0.02;
+                    }
+                    
+                    const sway = Math.sin(tree.swayOffset) * 2;
+                    
+                    this.ctx.fillStyle = '#8B4513';
+                    this.ctx.fillRect(tree.x - 4 + sway, tree.y, 8, tree.size * 0.6);
+                    
+                    this.ctx.fillStyle = treeColor;
+                    for (let layer = 0; layer < 3; layer++) {
+                        const layerY = tree.y - layer * (tree.size * 0.25);
+                        const size = tree.size * (1 - layer * 0.2);
+                        this.ctx.fillRect(tree.x - size/2 + sway, layerY - size/2, size, size/2);
+                    }
+                });
+            }
+
+            drawGround() {
+                const groundY = this.canvas.height * 0.65;
+                const colors = this.getSeasonColors();
+                this.ctx.fillStyle = this.isNightMode ? this.darkenColor(colors.ground) : colors.ground;
+                this.ctx.fillRect(0, groundY, this.canvas.width, this.canvas.height - groundY);
+                
+                this.ctx.fillStyle = this.isNightMode ? '#8B7355' : '#DEB887';
+                const pathY = this.canvas.height * 0.75;
+                this.ctx.fillRect(0, pathY, this.canvas.width, 15);
+            }
+
+            drawBuildings() {
+                this.buildings.forEach(building => {
+                    const isLit = this.isNightMode || this.timeOfDay === 'evening';
+                    
+                    this.ctx.fillStyle = this.isNightMode ? '#654321' : '#8B4513';
+                    this.ctx.fillRect(building.x, building.y, building.width, building.height);
+                    
+                    this.ctx.fillStyle = this.isNightMode ? '#4B0000' : '#654321';
+                    this.ctx.fillRect(building.x - 5, building.y - 15, building.width + 10, 20);
+                    
+                    this.ctx.fillStyle = isLit ? '#00ff41' : (this.isNightMode ? '#1a1a1a' : '#87CEEB');
+                    this.ctx.fillRect(building.x + 15, building.y + 15, 15, 15);
+                    this.ctx.fillRect(building.x + 35, building.y + 15, 15, 15);
+                    
+                    this.ctx.fillStyle = this.isNightMode ? '#2F2F2F' : '#4B0000';
+                    this.ctx.fillRect(building.x + 25, building.y + 35, 18, 25);
+                });
+            }
+
+            drawVillagers() {
+                this.villagers.forEach(villager => {
+                    if (this.animationsEnabled && villager.activity === 'creating') {
+                        villager.x += villager.vx * villager.direction;
+                        if (villager.x < 100 || villager.x > this.canvas.width - 100) {
+                            villager.direction *= -1;
+                        }
+                    }
+                    
+                    villager.workTimer += 16;
+                    
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                    this.ctx.fillRect(villager.x - 8, villager.y + 5, 16, 4);
+                    
+                    this.ctx.fillStyle = villager.color;
+                    this.ctx.fillRect(villager.x - 8, villager.y - 16, 16, 20);
+                    
+                    this.ctx.fillStyle = '#FFDBAC';
+                    this.ctx.fillRect(villager.x - 6, villager.y - 20, 12, 8);
+                    
+                    this.ctx.fillStyle = '#000000';
+                    this.ctx.fillRect(villager.x - 4, villager.y - 18, 2, 2);
+                    this.ctx.fillRect(villager.x + 2, villager.y - 18, 2, 2);
+                    
+                    if (villager.animating && Date.now() - villager.animTime < 1500) {
+                        this.ctx.fillStyle = '#FFDBAC';
+                        const waveY = villager.y - 12 + Math.sin((Date.now() - villager.animTime) * 0.01) * 3;
+                        this.ctx.fillRect(villager.x + 10, waveY, 6, 3);
+                        
+                        if (Math.random() < 0.2) {
+                            this.ctx.fillStyle = '#00ff41';
+                            this.ctx.fillRect(villager.x + Math.random() * 16 - 8, 
+                                           villager.y - Math.random() * 20, 2, 2);
+                        }
+                    }
+                });
+            }
+
+            drawAnimals() {
+                this.animals.forEach(animal => {
+                    if (this.animationsEnabled) {
+                        if (animal.moving) {
+                            animal.x += animal.vx;
+                            animal.y += animal.vy;
+                            animal.vy += 0.2;
+                            
+                            if (animal.y > this.canvas.height * 0.78) {
+                                animal.y = this.canvas.height * 0.78;
+                                animal.vy = animal.vy * -0.6;
+                                animal.vx *= 0.85;
+                            }
+                            
+                            if (Date.now() - animal.moveTime > 2000) {
+                                animal.moving = false;
+                                animal.vx = (Math.random() - 0.5) * 0.3;
+                            }
+                        } else {
+                            animal.x += animal.vx;
+                            if (animal.x < 80 || animal.x > this.canvas.width - 80) {
+                                animal.vx *= -1;
+                            }
+                        }
+                    }
+                    
+                    this.ctx.fillStyle = animal.color;
+                    const x = animal.x - animal.size/2;
+                    const y = animal.y - animal.size/2;
+                    this.ctx.fillRect(x, y, animal.size, animal.size * 0.7);
+                    
+                    if (animal.type === 'cat') {
+                        this.ctx.fillRect(x + 2, y - 4, 3, 5);
+                        this.ctx.fillRect(x + 8, y - 4, 3, 5);
+                    } else if (animal.type === 'dog') {
+                        this.ctx.fillRect(x - 2, y - 2, 4, 6);
+                        this.ctx.fillRect(x + animal.size - 2, y - 2, 4, 6);
+                    }
+                });
+            }
+
+            drawBirds() {
+                this.birds.forEach((bird, index) => {
+                    if (this.animationsEnabled) {
+                        bird.x += bird.vx;
+                        bird.y += bird.vy;
+                        bird.wingFlap += 0.4;
+                    }
+                    
+                    if (bird.x < -100 || bird.x > this.canvas.width + 100) {
+                        this.birds.splice(index, 1);
+                        return;
+                    }
+                    
+                    this.ctx.fillStyle = bird.color;
+                    this.ctx.fillRect(bird.x - 2, bird.y, bird.size * 0.6, bird.size * 0.4);
+                    
+                    const wingOffset = Math.sin(bird.wingFlap) * 4;
+                    this.ctx.fillRect(bird.x - 4, bird.y + wingOffset - 1, bird.size, bird.size * 0.3);
+                });
+                
+                this.spawnBirds();
+            }
+
+            drawParticles() {
+                if (!this.particlesEnabled) return;
+                
+                this.particles.forEach((particle, index) => {
+                    if (this.animationsEnabled) {
+                        particle.x += particle.vx;
+                        particle.y += particle.vy;
+                        
+                        if (particle.type === 'leaf') {
+                            particle.rotation += particle.rotationSpeed;
+                        }
+                    }
+                    
+                    if (particle.y > this.canvas.height + 50) {
+                        particle.y = -50;
+                        particle.x = Math.random() * this.canvas.width;
+                    }
+                    
+                    this.ctx.save();
+                    this.ctx.translate(particle.x, particle.y);
+                    
+                    if (particle.type === 'snow') {
+                        this.ctx.fillStyle = '#FFFFFF';
+                        this.ctx.fillRect(-particle.size/2, -particle.size/2, particle.size, particle.size);
+                    } else if (particle.type === 'leaf') {
+                        this.ctx.rotate(particle.rotation);
+                        this.ctx.fillStyle = particle.color;
+                        this.ctx.fillRect(-particle.size/2, -particle.size/2, particle.size, particle.size * 0.6);
+                    }
+                    
+                    this.ctx.restore();
+                });
+                
+                this.weatherEffects.forEach(effect => {
+                    if (this.animationsEnabled) {
+                        effect.x += effect.vx;
+                        effect.y += effect.vy;
+                    }
+                    
+                    if (effect.y > this.canvas.height + 20) {
+                        effect.y = -20;
+                        effect.x = Math.random() * this.canvas.width;
+                    }
+                    
+                    if (effect.type === 'rain' || effect.type === 'storm') {
+                        this.ctx.fillStyle = '#87CEEB';
+                        this.ctx.fillRect(effect.x, effect.y, 1, 8);
+                    } else if (effect.type === 'snow') {
+                        this.ctx.fillStyle = '#FFFFFF';
+                        this.ctx.fillRect(effect.x - effect.size/2, effect.y - effect.size/2, 
+                                        effect.size, effect.size);
+                    }
+                });
+            }
+
+            toggleAnimations() {
+                this.animationsEnabled = !this.animationsEnabled;
+                const button = document.getElementById('toggleAnimations');
+                button.textContent = this.animationsEnabled ? '⏸️ PAUSE' : '▶️ PLAY';
+            }
+
+            toggleParticles() {
+                this.particlesEnabled = !this.particlesEnabled;
+                const button = document.getElementById('toggleParticles');
+                button.textContent = this.particlesEnabled ? '❄️ EFFECTS' : '🚫 NO FX';
+                
+                if (!this.particlesEnabled) {
+                    this.particles = [];
+                    this.weatherEffects = [];
+                } else {
+                    this.updateSeasonalElements();
+                    this.updateWeatherEffects();
+                }
+            }
+
+            toggleDayNight() {
+                this.isNightMode = !this.isNightMode;
+                const button = document.getElementById('toggleDayNight');
+                button.textContent = this.isNightMode ? '☀️ DAY' : '🌙 NIGHT';
+            }
+
+            darkenColor(color) {
+                const colorMap = {
+                    '#87CEEB': '#4a5568', '#00BFFF': '#2d3748', '#FFA500': '#744210',
+                    '#B0C4DE': '#2d3748', '#90EE90': '#2d5016', '#32CD32': '#1a4c1a',
+                    '#DAA520': '#8b6914', '#F0F8FF': '#e2e8f0', '#228B22': '#0d4f0d',
+                    '#006400': '#003300', '#FF6347': '#8b2635', '#2F4F4F': '#1a2e2e'
+                };
+                return colorMap[color] || color;
+            }
+
+            updateUI() {
+                document.getElementById('location').textContent = this.location.city;
+                document.getElementById('currentSeason').textContent = 
+                    this.currentSeason.toUpperCase();
+                this.updateTime();
+            }
+
+            updateTime() {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString([], { 
+                    hour: '2-digit', 
+                    minute: '2-digit'
+                });
+                document.getElementById('localTime').textContent = timeString;
+                
+                const hour = now.getHours();
+                if (hour >= 5 && hour < 12) this.timeOfDay = 'morning';
+                else if (hour >= 12 && hour < 17) this.timeOfDay = 'afternoon';
+                else if (hour >= 17 && hour < 21) this.timeOfDay = 'evening';
+                else this.timeOfDay = 'night';
+            }
+
+            startTimeUpdate() {
+                setInterval(() => {
+                    this.updateTime();
+                }, 1000);
+            }
+
+            render() {
+                this.gameTime += 16;
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                this.drawBackground();
+                this.drawBuildings();
+                this.drawParticles();
+                this.drawBirds();
+                this.drawVillagers();
+                this.drawAnimals();
+            }
+
+            startGameLoop() {
+                const gameLoop = () => {
+                    if (this.animationsEnabled) {
+                        this.render();
+                    }
+                    requestAnimationFrame(gameLoop);
+                };
+                gameLoop();
+            }
+        }
+
+        // Initialize village
+        const village = new PixelVillage();
+
+        // Form handler
+        document.getElementById('contactForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            alert('TRANSMISSION SUCCESSFUL! Message queued for satyam.roy02@gmail.com');
+        });
+
+        // Smooth scroll
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
