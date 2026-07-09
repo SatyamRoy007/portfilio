@@ -174,12 +174,73 @@
             font-size: 8px;
             max-width: 250px;
             box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+            transition: transform 0.35s ease, opacity 0.35s ease;
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+        #village-controls.vc-hidden {
+            transform: translateX(calc(100% + 40px));
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .vc-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
         }
 
         #village-controls h3 {
             color: var(--neon-cyan);
-            margin-bottom: 15px;
             font-size: 10px;
+        }
+
+        #vcClose {
+            background: transparent;
+            color: var(--neon-green);
+            border: 2px solid var(--neon-green);
+            width: 22px;
+            height: 22px;
+            font-size: 9px;
+            line-height: 1;
+            cursor: none;
+            flex-shrink: 0;
+        }
+
+        #vcClose:hover {
+            background: var(--neon-green);
+            color: #000;
+        }
+
+        #vcToggle {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            z-index: 499;
+            background: rgba(0, 0, 0, 0.9);
+            color: var(--neon-green);
+            border: 2px solid var(--neon-green);
+            font-family: 'Press Start 2P', monospace;
+            font-size: 9px;
+            padding: 10px 14px;
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
+            transition: transform 0.35s ease, opacity 0.35s ease;
+            transform: translateX(calc(100% + 40px));
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #vcToggle.vc-visible {
+            transform: translateX(0);
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        #vcToggle:hover {
+            background: var(--neon-green);
+            color: #000;
         }
 
         .control-group {
@@ -556,6 +617,20 @@
                 left: 10px;
                 max-width: none;
             }
+
+            #village-controls.vc-hidden {
+                transform: translateY(-140%);
+            }
+
+            #vcToggle {
+                right: 10px;
+                top: 90px;
+                transform: translateY(-140%);
+            }
+
+            #vcToggle.vc-visible {
+                transform: translateY(0);
+            }
             
             .content-section {
                 padding: 80px 20px;
@@ -599,11 +674,15 @@
     </section>
 
     <!-- Village Controls -->
+    <button id="vcToggle" aria-label="Toggle village controls panel">☰ CTRL</button>
     <div id="village-controls">
-        <h3>VILLAGE_CTRL</h3>
-        
+        <div class="vc-header">
+            <h3>VILLAGE_CTRL</h3>
+            <button id="vcClose" aria-label="Hide panel">✕</button>
+        </div>
+
         <div class="stat-display">
-            <div>LOCATION: <span id="location">...</span></div>
+            <div>LOCATION: <span id="location">Locating...</span></div>
             <div>SEASON: <span id="currentSeason">...</span></div>
             <div>TIME: <span id="localTime">...</span></div>
         </div>
@@ -612,6 +691,7 @@
             <button id="toggleAnimations">⏸️ PAUSE</button>
             <button id="toggleParticles">❄️ EFFECTS</button>
             <button id="toggleDayNight">🌙 NIGHT</button>
+            <button id="toggleSound">🔊 SOUND</button>
         </div>
         
         <div class="control-group">
@@ -763,13 +843,108 @@
             });
         });
 
+        // ============ Synth Sound Effects (no external audio files) ============
+        class VillageSound {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+            unlock() {
+                if (!this.ctx) {
+                    const AC = window.AudioContext || window.webkitAudioContext;
+                    if (!AC) return;
+                    this.ctx = new AC();
+                }
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+            }
+            tone(freq, duration, type, gainAmt, glideTo, delay) {
+                if (!this.enabled || !this.ctx) return;
+                const t0 = this.ctx.currentTime + (delay || 0);
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type || 'sine';
+                osc.frequency.setValueAtTime(freq, t0);
+                if (glideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(glideTo, 1), t0 + duration);
+                gain.gain.setValueAtTime(0.0001, t0);
+                gain.gain.exponentialRampToValueAtTime(gainAmt || 0.1, t0 + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+                osc.connect(gain).connect(this.ctx.destination);
+                osc.start(t0);
+                osc.stop(t0 + duration + 0.05);
+            }
+            noise(duration, gainAmt, filterFreq, delay) {
+                if (!this.enabled || !this.ctx) return;
+                const t0 = this.ctx.currentTime + (delay || 0);
+                const size = Math.floor(this.ctx.sampleRate * duration);
+                const buffer = this.ctx.createBuffer(1, size, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < size; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / size);
+                const src = this.ctx.createBufferSource();
+                src.buffer = buffer;
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.value = filterFreq || 1200;
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(gainAmt || 0.1, t0);
+                gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+                src.connect(filter).connect(gain).connect(this.ctx.destination);
+                src.start(t0);
+            }
+            villager() {
+                this.unlock();
+                this.tone(520, 0.08, 'triangle', 0.11);
+                this.tone(660, 0.09, 'triangle', 0.09, null, 0.09);
+                this.tone(580, 0.1, 'triangle', 0.08, null, 0.18);
+            }
+            tree() {
+                this.unlock();
+                this.noise(0.35, 0.08, 2200, 0);
+                this.noise(0.25, 0.06, 3000, 0.08);
+            }
+            animal(type) {
+                this.unlock();
+                switch (type) {
+                    case 'cow':
+                        this.tone(110, 0.55, 'sawtooth', 0.12, 75);
+                        break;
+                    case 'goat':
+                        this.tone(420, 0.16, 'square', 0.1, 300);
+                        this.tone(360, 0.14, 'square', 0.08, 260, 0.14);
+                        break;
+                    case 'hen':
+                        this.tone(720, 0.06, 'square', 0.09);
+                        this.tone(860, 0.06, 'square', 0.08, null, 0.08);
+                        this.tone(660, 0.08, 'square', 0.07, null, 0.16);
+                        break;
+                    case 'dog':
+                        this.noise(0.12, 0.15, 900, 0);
+                        this.tone(180, 0.12, 'square', 0.1, 120, 0.02);
+                        break;
+                    case 'cat':
+                        this.tone(520, 0.3, 'sine', 0.09, 850);
+                        break;
+                    case 'bird':
+                        this.tone(1500, 0.08, 'sine', 0.07, 2200);
+                        this.tone(1800, 0.07, 'sine', 0.06, 2600, 0.09);
+                        break;
+                    case 'rabbit':
+                        this.tone(320, 0.05, 'triangle', 0.06);
+                        break;
+                    default:
+                        this.tone(440, 0.15, 'sine', 0.08);
+                }
+            }
+        }
+
         // Pixel Village Implementation
         class PixelVillage {
             constructor() {
                 this.canvas = document.getElementById('villageCanvas');
                 this.ctx = this.canvas.getContext('2d');
+                this.staticCanvas = document.createElement('canvas');
+                this.staticCtx = this.staticCanvas.getContext('2d');
                 this.setupCanvas();
-                
+
                 this.currentSeason = 'spring';
                 this.timeOfDay = 'morning';
                 this.isNightMode = false;
@@ -777,7 +952,8 @@
                 this.animationsEnabled = true;
                 this.particlesEnabled = true;
                 this.currentWeather = 'clear';
-                
+                this.sound = new VillageSound();
+
                 this.gameTime = 0;
                 this.particles = [];
                 this.birds = [];
@@ -787,10 +963,14 @@
                 this.clouds = [];
                 this.mountainPeaks = [];
                 this.trees = [];
+                this.villageTrees = [];
                 this.weatherEffects = [];
-                
+                this.grassTuftSeed = [];
+                this.fireEmbers = [];
+
                 this.mousePos = { x: 0, y: 0 };
-                
+                this.needsStaticRebuild = true;
+
                 this.init();
             }
 
@@ -798,19 +978,27 @@
                 const resize = () => {
                     this.canvas.width = window.innerWidth;
                     this.canvas.height = window.innerHeight;
+                    this.staticCanvas.width = window.innerWidth;
+                    this.staticCanvas.height = window.innerHeight;
                     this.ctx.imageSmoothingEnabled = false;
+                    this.staticCtx.imageSmoothingEnabled = false;
                     this.generateTerrain();
+                    if (this.location) {
+                        this.layoutVillage();
+                        this.needsStaticRebuild = true;
+                    }
                 };
-                
+
                 resize();
                 window.addEventListener('resize', resize);
-                
+
                 this.canvas.addEventListener('mousemove', (e) => {
                     this.mousePos = { x: e.clientX, y: e.clientY };
                     this.checkHover();
                 });
-                
+
                 this.canvas.addEventListener('click', (e) => {
+                    this.sound.unlock();
                     this.handleClick(e.clientX, e.clientY);
                 });
             }
@@ -818,7 +1006,7 @@
             generateTerrain() {
                 this.mountainPeaks = [];
                 this.trees = [];
-                
+
                 const peaks = 12;
                 for (let i = 0; i <= peaks; i++) {
                     const x = (this.canvas.width / peaks) * i;
@@ -826,24 +1014,51 @@
                     const noise = Math.sin(i * 0.7) * 60 + Math.cos(i * 1.2) * 30;
                     this.mountainPeaks.push({ x, y: baseHeight - 80 - noise });
                 }
-                
-                const treeCount = 20;
+
+                // Small hillside trees on the mountains - only the canopy sways, trunk is fixed
+                const treeCount = 22;
                 for (let i = 0; i < treeCount; i++) {
                     this.trees.push({
                         x: Math.random() * this.canvas.width,
-                        y: this.canvas.height * (0.3 + Math.random() * 0.25),
-                        size: Math.random() * 25 + 15,
+                        trunkTopY: this.canvas.height * (0.3 + Math.random() * 0.25),
+                        size: Math.random() * 22 + 14,
                         type: Math.floor(Math.random() * 3),
                         swayOffset: Math.random() * Math.PI * 2
                     });
                 }
+
+                // Pre-render a reusable grass texture tile (cheap, blitted many times)
+                this.buildGrassTile();
+            }
+
+            buildGrassTile() {
+                const tile = document.createElement('canvas');
+                tile.width = 64;
+                tile.height = 64;
+                const tctx = tile.getContext('2d');
+                const shades = ['rgba(0,0,0,0.05)', 'rgba(255,255,255,0.06)', 'rgba(0,0,0,0.03)'];
+                for (let i = 0; i < 90; i++) {
+                    const x = Math.random() * 64;
+                    const y = Math.random() * 64;
+                    const h = Math.random() * 4 + 2;
+                    tctx.strokeStyle = shades[i % shades.length];
+                    tctx.lineWidth = 1;
+                    tctx.beginPath();
+                    tctx.moveTo(x, y + h);
+                    tctx.lineTo(x + (Math.random() - 0.5) * 2, y);
+                    tctx.stroke();
+                }
+                this.grassTile = tile;
+                this.grassPattern = null;
             }
 
             async init() {
                 this.generateTerrain();
                 this.setupEventListeners();
                 await this.detectLocation();
+                this.layoutVillage();
                 this.createGameObjects();
+                this.needsStaticRebuild = true;
                 this.startGameLoop();
                 this.startTimeUpdate();
             }
@@ -852,15 +1067,22 @@
                 document.getElementById('toggleAnimations').addEventListener('click', () => {
                     this.toggleAnimations();
                 });
-                
+
                 document.getElementById('toggleParticles').addEventListener('click', () => {
                     this.toggleParticles();
                 });
-                
+
                 document.getElementById('toggleDayNight').addEventListener('click', () => {
                     this.toggleDayNight();
+                    this.needsStaticRebuild = true;
                 });
-                
+
+                document.getElementById('toggleSound').addEventListener('click', (e) => {
+                    this.sound.unlock();
+                    this.sound.enabled = !this.sound.enabled;
+                    e.target.textContent = this.sound.enabled ? '🔊 SOUND' : '🔇 MUTED';
+                });
+
                 document.getElementById('seasonOverride').addEventListener('change', (e) => {
                     if (e.target.value) {
                         this.currentSeason = e.target.value;
@@ -868,8 +1090,9 @@
                     } else {
                         this.determineSeason();
                     }
+                    this.needsStaticRebuild = true;
                 });
-                
+
                 document.getElementById('weatherOverride').addEventListener('change', (e) => {
                     if (e.target.value) {
                         this.currentWeather = e.target.value;
@@ -878,45 +1101,90 @@
                         this.determineWeather();
                     }
                 });
+
+                // Hide / show panel
+                const panel = document.getElementById('village-controls');
+                const openBtn = document.getElementById('vcToggle');
+                const closeBtn = document.getElementById('vcClose');
+                closeBtn.addEventListener('click', () => {
+                    panel.classList.add('vc-hidden');
+                    openBtn.classList.add('vc-visible');
+                });
+                openBtn.addEventListener('click', () => {
+                    panel.classList.remove('vc-hidden');
+                    openBtn.classList.remove('vc-visible');
+                });
             }
 
             async detectLocation() {
+                let coords = null;
                 try {
                     const position = await new Promise((resolve, reject) => {
                         if (!navigator.geolocation) {
                             reject(new Error('Geolocation not supported'));
+                            return;
                         }
                         navigator.geolocation.getCurrentPosition(resolve, reject, {
-                            timeout: 5000,
+                            timeout: 6000,
                             enableHighAccuracy: false
                         });
                     });
-                    
-                    this.location = {
+                    coords = {
                         latitude: position.coords.latitude,
-                        longitude: position.coords.longitude,
-                        city: 'Your Location',
-                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                        longitude: position.coords.longitude
                     };
                 } catch (error) {
-                    this.location = {
-                        latitude: 21.1702,
-                        longitude: 72.8311,
-                        city: 'India',
-                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-                    };
+                    coords = { latitude: 21.1702, longitude: 72.8311 };
                 }
-                
+
+                this.location = {
+                    latitude: coords.latitude,
+                    longitude: coords.longitude,
+                    city: 'Unknown',
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                };
+
+                // Resolve an actual city name via reverse geocoding
+                try {
+                    const cityName = await this.reverseGeocode(coords.latitude, coords.longitude);
+                    this.location.city = cityName || 'Unknown';
+                } catch (e) {
+                    this.location.city = 'Unknown';
+                }
+
                 this.determineSeason();
                 this.determineWeather();
                 this.updateUI();
+            }
+
+            async reverseGeocode(lat, lon) {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                try {
+                    const res = await fetch(
+                        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`,
+                        { signal: controller.signal }
+                    );
+                    clearTimeout(timeoutId);
+                    if (!res.ok) throw new Error('geocode failed');
+                    const data = await res.json();
+                    const city = data.city || data.locality || data.principalSubdivision;
+                    const country = data.countryName;
+                    if (city && country) return `${city}, ${country}`;
+                    if (city) return city;
+                    if (country) return country;
+                    return null;
+                } catch (e) {
+                    clearTimeout(timeoutId);
+                    return null;
+                }
             }
 
             determineSeason() {
                 const now = new Date();
                 const month = now.getMonth();
                 const isNorthern = this.location.latitude >= 0;
-                
+
                 let season;
                 if (isNorthern) {
                     if (month >= 2 && month <= 4) season = 'spring';
@@ -929,7 +1197,7 @@
                     else if (month >= 8 && month <= 10) season = 'spring';
                     else season = 'summer';
                 }
-                
+
                 this.currentSeason = season;
                 this.updateSeasonalElements();
             }
@@ -941,7 +1209,7 @@
                     autumn: ['clear', 'rain', 'clear'],
                     winter: ['clear', 'snow', 'snow']
                 };
-                
+
                 const options = weatherOptions[this.currentSeason] || ['clear'];
                 this.currentWeather = options[Math.floor(Math.random() * options.length)];
                 this.updateWeatherEffects();
@@ -949,7 +1217,7 @@
 
             updateSeasonalElements() {
                 this.particles = [];
-                
+
                 if (this.currentSeason === 'winter' && this.particlesEnabled) {
                     for (let i = 0; i < 60; i++) {
                         this.particles.push({
@@ -980,7 +1248,7 @@
 
             updateWeatherEffects() {
                 this.weatherEffects = [];
-                
+
                 if (this.currentWeather === 'rain' && this.particlesEnabled) {
                     for (let i = 0; i < 80; i++) {
                         this.weatherEffects.push({
@@ -1015,20 +1283,117 @@
                 }
             }
 
+            // ============ Full village layout (positions only, proportional to canvas) ============
+            layoutVillage() {
+                const W = this.canvas.width;
+                const H = this.canvas.height;
+                const groundY = H * 0.65;
+                const baseY = H * 0.76; // where structures sit
+
+                this.gate = { x: W * 0.03, y: baseY, w: 34, h: 62 };
+
+                this.fencePosts = [];
+                for (let x = W * 0.06; x < W * 0.985; x += 26) {
+                    // gaps at the gate and festival ground entrance
+                    if (x > W * 0.0 && x < W * 0.06) continue;
+                    this.fencePosts.push({ x, y: H * 0.97 });
+                }
+
+                this.houses = [
+                    { x: W * 0.10, y: baseY, w: 46, h: 34, roof: '#A0522D' },
+                    { x: W * 0.145, y: baseY + 4, w: 40, h: 30, roof: '#8B4513' },
+                    { x: W * 0.185, y: baseY, w: 44, h: 32, roof: '#A0522D' }
+                ];
+
+                this.kitchenGardens = [
+                    { x: W * 0.115, y: baseY + 40, w: 34, h: 14 },
+                    { x: W * 0.20, y: baseY + 38, w: 30, h: 13 }
+                ];
+
+                this.well = { x: W * 0.235, y: baseY + 10 };
+                this.trough = { x: W * 0.685, y: baseY + 18 };
+
+                this.temple = { x: W * 0.285, y: baseY - 6 };
+
+                this.banyan = {
+                    x: W * 0.335, trunkTopY: groundY - 46, size: 70, swayOffset: 0
+                };
+                this.restingPlatform = { x: W * 0.335, y: baseY + 26 };
+
+                this.chaupal = { x: W * 0.39, y: baseY + 6 };
+                this.fireplace = { x: W * 0.415, y: baseY + 30, flicker: 0 };
+
+                this.shops = [
+                    { x: W * 0.46, y: baseY, w: 42, h: 32, kind: 'grocery', color: '#CD853F', label: 'BAZAAR' },
+                    { x: W * 0.505, y: baseY + 2, w: 40, h: 30, kind: 'potter', color: '#B8621B', label: 'POTTERY' },
+                    { x: W * 0.55, y: baseY, w: 40, h: 32, kind: 'blacksmith', color: '#555555', label: 'FORGE' },
+                    { x: W * 0.60, y: baseY + 2, w: 44, h: 30, kind: 'school', color: '#6B8E23', label: 'PATHSHALA' }
+                ];
+
+                this.grainStorage = { x: W * 0.655, y: baseY + 4 };
+                this.cattleShed = { x: W * 0.70, y: baseY + 6 };
+
+                this.cartParking = [
+                    { x: W * 0.745, y: baseY + 34 },
+                    { x: W * 0.775, y: baseY + 34 }
+                ];
+
+                this.grazingGround = { x: W * 0.80, y: baseY + 20, w: W * 0.10, h: 30 };
+
+                this.pond = { x: W * 0.855, y: baseY + 30, rx: 46, ry: 18 };
+                this.washingArea = { x: W * 0.90, y: baseY + 34 };
+
+                this.river = { x0: W * 0.955, x1: W, topY: groundY - 20 };
+                this.bridge = { x: W * 0.955, y: baseY + 14 };
+
+                this.orchard = [
+                    { x: W * 0.87, trunkTopY: baseY - 30, size: 26, swayOffset: Math.random() * 6 },
+                    { x: W * 0.895, trunkTopY: baseY - 26, size: 22, swayOffset: Math.random() * 6 }
+                ];
+
+                this.watchTower = { x: W * 0.965, y: baseY - 4 };
+
+                this.festival = { x: W * 0.985, y: baseY + 10 };
+
+                this.cropFields = [];
+                const fieldY = groundY - 6;
+                for (let i = 0; i < 7; i++) {
+                    this.cropFields.push({
+                        x: W * (0.04 + i * 0.135), y: fieldY, w: W * 0.10, h: 16,
+                        tone: i % 2 === 0 ? 0 : 1
+                    });
+                }
+
+                // Large shade trees (Neem, Mango, Peepal) scattered through the village
+                this.villageTrees = [
+                    { x: W * 0.27, trunkTopY: baseY - 34, size: 30, kind: 'peepal', swayOffset: 0.4 },
+                    { x: W * 0.635, trunkTopY: baseY - 30, size: 26, kind: 'neem', swayOffset: 1.1 },
+                    { x: W * 0.965, trunkTopY: baseY - 40, size: 24, kind: 'mango', swayOffset: 2.0 },
+                    { x: W * 0.045, trunkTopY: baseY - 26, size: 22, kind: 'neem', swayOffset: 2.7 }
+                ];
+
+                this.footpaths = [
+                    { x1: W * 0.235, y1: baseY + 10, x2: W * 0.235, y2: H * 0.75 },
+                    { x1: W * 0.855, y1: baseY + 30, x2: W * 0.855, y2: H * 0.75 }
+                ];
+            }
+
             createGameObjects() {
                 const villagerTypes = [
                     { name: 'Designer', activity: 'creating', color: '#9932CC' },
                     { name: 'Developer', activity: 'coding', color: '#4682B4' },
                     { name: 'Editor', activity: 'editing', color: '#FF6347' },
-                    { name: 'Marketer', activity: 'planning', color: '#32CD32' }
+                    { name: 'Marketer', activity: 'planning', color: '#32CD32' },
+                    { name: 'Farmer', activity: 'tending fields', color: '#B8860B' },
+                    { name: 'Elder', activity: 'resting at the chaupal', color: '#708090' }
                 ];
-                
+
                 this.villagers = [];
-                villagerTypes.forEach((type, i) => {
+                villagerTypes.forEach((type) => {
                     this.villagers.push({
                         ...type,
-                        x: Math.random() * this.canvas.width * 0.7 + this.canvas.width * 0.15,
-                        y: this.canvas.height * 0.7 + Math.random() * 100,
+                        x: Math.random() * this.canvas.width * 0.8 + this.canvas.width * 0.1,
+                        y: this.canvas.height * 0.78 + Math.random() * 60,
                         vx: (Math.random() - 0.5) * 0.4,
                         size: 20,
                         direction: Math.random() > 0.5 ? 1 : -1,
@@ -1036,32 +1401,33 @@
                         workTimer: Math.random() * 1000
                     });
                 });
-                
+
                 const animalTypes = [
                     { type: 'bird', size: 20, color: '#4682B4' },
                     { type: 'cat', size: 18, color: '#696969' },
                     { type: 'dog', size: 22, color: '#8B4513' },
-                    { type: 'rabbit', size: 16, color: '#DEB887' }
+                    { type: 'rabbit', size: 16, color: '#DEB887' },
+                    { type: 'cow', size: 30, color: '#F5F0E6' },
+                    { type: 'cow', size: 28, color: '#8B5A2B' },
+                    { type: 'goat', size: 20, color: '#E8E4D8' },
+                    { type: 'hen', size: 14, color: '#B22222' },
+                    { type: 'hen', size: 13, color: '#8B4513' }
                 ];
-                
+
                 this.animals = [];
                 animalTypes.forEach(animal => {
                     this.animals.push({
                         ...animal,
-                        x: Math.random() * this.canvas.width * 0.6 + this.canvas.width * 0.2,
-                        y: this.canvas.height * 0.75 + Math.random() * 80,
+                        x: Math.random() * this.canvas.width * 0.85 + this.canvas.width * 0.05,
+                        y: this.canvas.height * 0.78 + Math.random() * 70,
                         vx: (Math.random() - 0.5) * 0.5,
                         vy: 0,
                         moving: false
                     });
                 });
-                
-                this.buildings = [
-                    { type: 'studio', x: this.canvas.width * 0.15, y: this.canvas.height * 0.5, width: 80, height: 60 },
-                    { type: 'lab', x: this.canvas.width * 0.4, y: this.canvas.height * 0.48, width: 90, height: 70 },
-                    { type: 'office', x: this.canvas.width * 0.7, y: this.canvas.height * 0.52, width: 75, height: 55 }
-                ];
-                
+
+                this.buildings = [];
+
                 this.createClouds();
                 this.spawnBirds();
             }
@@ -1095,31 +1461,71 @@
             }
 
             handleClick(x, y) {
+                let hitSomething = false;
+
                 this.villagers.forEach(villager => {
                     const dx = x - villager.x;
                     const dy = y - villager.y;
                     if (Math.sqrt(dx * dx + dy * dy) < villager.size) {
                         villager.animating = true;
                         villager.animTime = Date.now();
+                        this.sound.villager();
+                        hitSomething = true;
                     }
                 });
-                
+
                 this.animals.forEach(animal => {
                     const dx = x - animal.x;
                     const dy = y - animal.y;
-                    if (Math.sqrt(dx * dx + dy * dy) < animal.size) {
+                    if (Math.sqrt(dx * dx + dy * dy) < animal.size + 6) {
                         animal.moving = true;
                         animal.moveTime = Date.now();
                         animal.vx = (Math.random() - 0.5) * 4;
                         animal.vy = -Math.random() * 3 - 1;
+                        this.sound.animal(animal.type);
+                        hitSomething = true;
                     }
                 });
+
+                if (!hitSomething) {
+                    const allTrees = [
+                        ...this.trees.map(t => ({ x: t.x, y: t.trunkTopY, r: t.size })),
+                        ...(this.villageTrees || []).map(t => ({ x: t.x, y: t.trunkTopY, r: t.size })),
+                        this.banyan ? { x: this.banyan.x, y: this.banyan.trunkTopY, r: this.banyan.size } : null
+                    ].filter(Boolean);
+
+                    allTrees.forEach(tree => {
+                        const dx = x - tree.x;
+                        const dy = y - tree.y;
+                        if (Math.sqrt(dx * dx + dy * dy) < tree.r + 10) {
+                            this.sound.tree();
+                            this.spawnLeafBurst(tree.x, tree.y);
+                        }
+                    });
+                }
+            }
+
+            spawnLeafBurst(x, y) {
+                for (let i = 0; i < 6; i++) {
+                    this.particles.push({
+                        x, y,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: -Math.random() * 2 - 0.5,
+                        gravity: 0.08,
+                        size: Math.random() * 4 + 2,
+                        rotation: 0,
+                        rotationSpeed: (Math.random() - 0.5) * 0.2,
+                        color: this.getSeasonColors().trees,
+                        type: 'burst',
+                        life: 60
+                    });
+                }
             }
 
             checkHover() {
                 const tooltip = document.getElementById('tooltip');
                 let hovered = null;
-                
+
                 this.villagers.forEach(villager => {
                     const dx = this.mousePos.x - villager.x;
                     const dy = this.mousePos.y - villager.y;
@@ -1127,12 +1533,24 @@
                         hovered = { type: 'villager', obj: villager };
                     }
                 });
-                
+
+                if (!hovered) {
+                    this.animals.forEach(animal => {
+                        const dx = this.mousePos.x - animal.x;
+                        const dy = this.mousePos.y - animal.y;
+                        if (Math.sqrt(dx * dx + dy * dy) < animal.size + 6 && !hovered) {
+                            hovered = { type: 'animal', obj: animal };
+                        }
+                    });
+                }
+
                 if (hovered) {
                     tooltip.style.display = 'block';
                     tooltip.style.left = Math.min(this.mousePos.x + 15, window.innerWidth - 200) + 'px';
                     tooltip.style.top = Math.max(this.mousePos.y - 40, 10) + 'px';
-                    tooltip.textContent = `${hovered.obj.name} - ${hovered.obj.activity}`;
+                    tooltip.textContent = hovered.type === 'villager'
+                        ? `${hovered.obj.name} - ${hovered.obj.activity}`
+                        : hovered.obj.type.toUpperCase();
                 } else {
                     tooltip.style.display = 'none';
                 }
@@ -1140,77 +1558,528 @@
 
             getSeasonColors() {
                 const colors = {
-                    spring: { sky: ['#87CEEB', '#98FB98'], ground: '#90EE90', trees: '#228B22' },
-                    summer: { sky: ['#00BFFF', '#87CEEB'], ground: '#32CD32', trees: '#006400' },
-                    autumn: { sky: ['#FFA500', '#FFD700'], ground: '#DAA520', trees: '#FF6347' },
-                    winter: { sky: ['#B0C4DE', '#F0F8FF'], ground: '#F0F8FF', trees: '#2F4F4F' }
+                    spring: { sky: ['#87CEEB', '#98FB98'], ground: '#8FCB6B', trees: '#2E9E3E', field: ['#9ACD32', '#C9D96A'] },
+                    summer: { sky: ['#00BFFF', '#87CEEB'], ground: '#5FAE3A', trees: '#1E7A24', field: ['#DAA520', '#7CAA2D'] },
+                    autumn: { sky: ['#FFA500', '#FFD700'], ground: '#B79A4A', trees: '#C9622B', field: ['#D2A441', '#B5732A'] },
+                    winter: { sky: ['#B0C4DE', '#F0F8FF'], ground: '#E7EEE2', trees: '#3B5A45', field: ['#DCE6D5', '#C7D3C0'] }
                 };
                 return colors[this.currentSeason] || colors.spring;
             }
 
-            drawBackground() {
+            darkenColor(color) {
+                const colorMap = {
+                    '#87CEEB': '#4a5568', '#00BFFF': '#2d3748', '#FFA500': '#744210',
+                    '#B0C4DE': '#2d3748', '#90EE90': '#2d5016', '#32CD32': '#1a4c1a',
+                    '#DAA520': '#8b6914', '#F0F8FF': '#e2e8f0', '#228B22': '#0d4f0d',
+                    '#006400': '#003300', '#FF6347': '#8b2635', '#2F4F4F': '#1a2e2e',
+                    '#8FCB6B': '#2c4a1e', '#5FAE3A': '#264d16', '#B79A4A': '#4d3f1e',
+                    '#E7EEE2': '#5a6155', '#2E9E3E': '#123a17', '#1E7A24': '#0d3210',
+                    '#C9622B': '#4d2611', '#3B5A45': '#182620'
+                };
+                return colorMap[color] || color;
+            }
+
+            // ============ Static (rarely changing) scene, drawn once into an offscreen buffer ============
+            rebuildStaticLayer() {
+                const ctx = this.staticCtx;
+                const W = this.staticCanvas.width;
+                const H = this.staticCanvas.height;
+                ctx.clearRect(0, 0, W, H);
+
+                this.drawSkyAndMountains(ctx);
+                this.drawCropFields(ctx);
+                this.drawGround(ctx);
+                this.drawRiverBed(ctx);
+                this.drawPondBed(ctx);
+                this.drawFootpaths(ctx);
+                this.drawFence(ctx);
+                this.drawGate(ctx);
+                this.drawHouses(ctx);
+                this.drawKitchenGardens(ctx);
+                this.drawWell(ctx);
+                this.drawTemple(ctx);
+                this.drawChaupal(ctx);
+                this.drawShops(ctx);
+                this.drawGrainStorage(ctx);
+                this.drawCattleShed(ctx);
+                this.drawTrough(ctx);
+                this.drawCarts(ctx);
+                this.drawWashingArea(ctx);
+                this.drawBridge(ctx);
+                this.drawWatchTower(ctx);
+                this.drawRestingPlatform(ctx);
+                this.drawTreeTrunks(ctx);
+
+                this.needsStaticRebuild = false;
+            }
+
+            drawSkyAndMountains(ctx) {
                 const colors = this.getSeasonColors();
-                const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height * 0.7);
-                
+                const gradient = ctx.createLinearGradient(0, 0, 0, this.canvas.height * 0.7);
                 let skyColors = colors.sky;
                 let groundColor = colors.ground;
-                
+
                 if (this.isNightMode) {
                     skyColors = ['#1a1a3a', '#2c2c54'];
                     groundColor = this.darkenColor(colors.ground);
                 }
-                
+
                 gradient.addColorStop(0, skyColors[0]);
                 gradient.addColorStop(0.6, skyColors[1] || skyColors[0]);
                 gradient.addColorStop(1, groundColor);
-                
-                this.ctx.fillStyle = gradient;
-                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-                
-                this.drawMountains();
-                this.drawSunMoon();
-                this.drawClouds();
-                this.drawTrees();
-                this.drawGround();
-            }
 
-            drawMountains() {
-                this.ctx.fillStyle = this.isNightMode ? '#2c2c54' : '#708090';
-                this.ctx.globalAlpha = 0.7;
-                
-                this.ctx.beginPath();
-                this.ctx.moveTo(0, this.canvas.height * 0.4);
-                
-                this.mountainPeaks.forEach(peak => {
-                    this.ctx.lineTo(peak.x, peak.y);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Back mountain layer
+                ctx.fillStyle = this.isNightMode ? '#22223f' : '#8a9aa8';
+                ctx.globalAlpha = 0.5;
+                ctx.beginPath();
+                ctx.moveTo(0, this.canvas.height * 0.42);
+                this.mountainPeaks.forEach((peak, i) => {
+                    ctx.lineTo(peak.x, peak.y + 30 + Math.sin(i) * 10);
                 });
-                
-                this.ctx.lineTo(this.canvas.width, this.canvas.height);
-                this.ctx.lineTo(0, this.canvas.height);
-                this.ctx.closePath();
-                this.ctx.fill();
-                
-                this.ctx.globalAlpha = 1;
+                ctx.lineTo(this.canvas.width, this.canvas.height);
+                ctx.lineTo(0, this.canvas.height);
+                ctx.closePath();
+                ctx.fill();
+
+                // Front mountain layer
+                ctx.fillStyle = this.isNightMode ? '#2c2c54' : '#708090';
+                ctx.globalAlpha = 0.75;
+                ctx.beginPath();
+                ctx.moveTo(0, this.canvas.height * 0.4);
+                this.mountainPeaks.forEach(peak => {
+                    ctx.lineTo(peak.x, peak.y);
+                });
+                ctx.lineTo(this.canvas.width, this.canvas.height);
+                ctx.lineTo(0, this.canvas.height);
+                ctx.closePath();
+                ctx.fill();
+
+                // Snow caps
+                ctx.fillStyle = this.isNightMode ? '#cfd6e6' : '#ffffff';
+                ctx.globalAlpha = 0.85;
+                this.mountainPeaks.forEach(peak => {
+                    ctx.fillRect(peak.x - 8, peak.y, 16, 6);
+                    ctx.fillRect(peak.x - 4, peak.y - 5, 8, 5);
+                });
+
+                ctx.globalAlpha = 1;
             }
 
+            drawCropFields(ctx) {
+                const colors = this.getSeasonColors();
+                const tones = this.isNightMode
+                    ? [this.darkenColor(colors.field[0]), this.darkenColor(colors.field[1])]
+                    : colors.field;
+
+                (this.cropFields || []).forEach(f => {
+                    ctx.fillStyle = tones[f.tone] || tones[0];
+                    ctx.fillRect(f.x, f.y, f.w, f.h);
+                    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+                    ctx.lineWidth = 1;
+                    for (let rx = f.x; rx < f.x + f.w; rx += 6) {
+                        ctx.beginPath();
+                        ctx.moveTo(rx, f.y);
+                        ctx.lineTo(rx, f.y + f.h);
+                        ctx.stroke();
+                    }
+                });
+            }
+
+            drawGround(ctx) {
+                const groundY = this.canvas.height * 0.65;
+                const colors = this.getSeasonColors();
+                ctx.fillStyle = this.isNightMode ? this.darkenColor(colors.ground) : colors.ground;
+                ctx.fillRect(0, groundY, this.canvas.width, this.canvas.height - groundY);
+
+                // Blit grass texture tile across the ground for a richer look
+                if (this.grassTile) {
+                    if (!this.grassPattern) this.grassPattern = ctx.createPattern(this.grassTile, 'repeat');
+                    ctx.save();
+                    ctx.globalAlpha = this.isNightMode ? 0.25 : 0.5;
+                    ctx.fillStyle = this.grassPattern;
+                    ctx.fillRect(0, groundY, this.canvas.width, this.canvas.height - groundY);
+                    ctx.restore();
+                }
+
+                // Main dirt road running through the village
+                ctx.fillStyle = this.isNightMode ? '#5a4a35' : '#C19A6B';
+                const pathY = this.canvas.height * 0.75;
+                ctx.fillRect(0, pathY, this.canvas.width, 18);
+                ctx.fillStyle = 'rgba(0,0,0,0.12)';
+                for (let rx = 0; rx < this.canvas.width; rx += 30) {
+                    ctx.fillRect(rx, pathY + 4, 14, 3);
+                }
+
+                // Grazing ground patch
+                if (this.grazingGround) {
+                    ctx.fillStyle = this.isNightMode ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.10)';
+                    ctx.fillRect(this.grazingGround.x, this.grazingGround.y, this.grazingGround.w, this.grazingGround.h);
+                }
+
+                // Festival ground with bunting posts
+                if (this.festival) {
+                    const fx = this.festival.x, fy = this.festival.y;
+                    ctx.fillStyle = '#DAA520';
+                    ctx.fillRect(fx - 4, fy - 40, 4, 40);
+                    ctx.fillRect(fx - 30, fy - 40, 4, 40);
+                }
+            }
+
+            drawRiverBed(ctx) {
+                if (!this.river) return;
+                const { x0, x1, topY } = this.river;
+                ctx.fillStyle = this.isNightMode ? '#1c3a4a' : '#4FA3C9';
+                ctx.fillRect(x0, topY, x1 - x0, this.canvas.height - topY);
+            }
+
+            drawPondBed(ctx) {
+                if (!this.pond) return;
+                const { x, y, rx, ry } = this.pond;
+                ctx.fillStyle = this.isNightMode ? '#1c3a4a' : '#4FA3C9';
+                ctx.beginPath();
+                ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = this.isNightMode ? '#0f2530' : '#3d7a94';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+
+            drawFootpaths(ctx) {
+                ctx.strokeStyle = this.isNightMode ? '#6b5a44' : '#D2B48C';
+                ctx.lineWidth = 10;
+                (this.footpaths || []).forEach(p => {
+                    ctx.beginPath();
+                    ctx.moveTo(p.x1, p.y1);
+                    ctx.lineTo(p.x2, p.y2);
+                    ctx.stroke();
+                });
+            }
+
+            drawFence(ctx) {
+                ctx.fillStyle = this.isNightMode ? '#4a3a28' : '#8B5A2B';
+                (this.fencePosts || []).forEach(p => {
+                    ctx.fillRect(p.x, p.y - 16, 3, 16);
+                });
+                ctx.strokeStyle = this.isNightMode ? '#4a3a28' : '#8B5A2B';
+                ctx.lineWidth = 2;
+                if (this.fencePosts && this.fencePosts.length > 1) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.fencePosts[0].x, this.fencePosts[0].y - 10);
+                    this.fencePosts.forEach(p => ctx.lineTo(p.x, p.y - 10));
+                    ctx.stroke();
+                }
+            }
+
+            drawGate(ctx) {
+                if (!this.gate) return;
+                const { x, y, w, h } = this.gate;
+                ctx.fillStyle = '#6B4423';
+                ctx.fillRect(x, y - h, 8, h);
+                ctx.fillRect(x + w - 8, y - h, 8, h);
+                ctx.fillRect(x, y - h - 10, w, 12);
+                ctx.fillStyle = '#DAA520';
+                ctx.font = '8px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(x + w / 2 - 3, y - h - 22, 6, 12);
+            }
+
+            drawHouses(ctx) {
+                (this.houses || []).forEach(h => {
+                    ctx.fillStyle = this.isNightMode ? '#8a7455' : '#D9B382';
+                    ctx.fillRect(h.x, h.y - h.h, h.w, h.h);
+                    ctx.fillStyle = this.isNightMode ? '#4a3a28' : h.roof;
+                    ctx.beginPath();
+                    ctx.moveTo(h.x - 6, h.y - h.h);
+                    ctx.lineTo(h.x + h.w / 2, h.y - h.h - 18);
+                    ctx.lineTo(h.x + h.w + 6, h.y - h.h);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.fillStyle = this.isNightMode ? '#1a1a1a' : '#5C4033';
+                    ctx.fillRect(h.x + h.w / 2 - 6, h.y - 16, 12, 16);
+                    ctx.fillStyle = this.isNightMode ? '#00ff41' : '#87CEEB';
+                    ctx.fillRect(h.x + 6, h.y - h.h + 8, 8, 8);
+                });
+            }
+
+            drawKitchenGardens(ctx) {
+                (this.kitchenGardens || []).forEach(g => {
+                    ctx.fillStyle = this.isNightMode ? '#3a2f1c' : '#7A5230';
+                    ctx.fillRect(g.x, g.y, g.w, g.h);
+                    ctx.fillStyle = '#3E9E3E';
+                    for (let i = 0; i < g.w; i += 6) {
+                        ctx.fillRect(g.x + i, g.y - 3, 3, 5);
+                    }
+                });
+            }
+
+            drawWell(ctx) {
+                if (!this.well) return;
+                const { x, y } = this.well;
+                ctx.fillStyle = '#8B8378';
+                ctx.fillRect(x - 16, y - 14, 32, 14);
+                ctx.fillStyle = '#6b6459';
+                ctx.fillRect(x - 16, y - 14, 32, 4);
+                ctx.fillStyle = '#5C4033';
+                ctx.fillRect(x - 18, y - 40, 4, 26);
+                ctx.fillRect(x + 14, y - 40, 4, 26);
+                ctx.fillRect(x - 18, y - 42, 36, 5);
+                ctx.strokeStyle = '#3a3a3a';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(x, y - 38);
+                ctx.lineTo(x, y - 16);
+                ctx.stroke();
+            }
+
+            drawTrough(ctx) {
+                if (!this.trough) return;
+                const { x, y } = this.trough;
+                ctx.fillStyle = '#6b5a44';
+                ctx.fillRect(x - 20, y - 8, 40, 10);
+                ctx.fillStyle = '#4FA3C9';
+                ctx.fillRect(x - 17, y - 7, 34, 5);
+            }
+
+            drawTemple(ctx) {
+                if (!this.temple) return;
+                const { x, y } = this.temple;
+                ctx.fillStyle = this.isNightMode ? '#c9c2b0' : '#F5F0E1';
+                ctx.fillRect(x - 20, y - 34, 40, 34);
+                ctx.fillStyle = '#D2691E';
+                ctx.beginPath();
+                ctx.moveTo(x - 24, y - 34);
+                ctx.lineTo(x, y - 60);
+                ctx.lineTo(x + 24, y - 34);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = '#FF8C00';
+                ctx.fillRect(x - 2, y - 72, 4, 12);
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.moveTo(x, y - 76);
+                ctx.lineTo(x - 5, y - 70);
+                ctx.lineTo(x + 5, y - 70);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = '#8B0000';
+                ctx.fillRect(x - 6, y - 20, 12, 20);
+            }
+
+            drawChaupal(ctx) {
+                if (!this.chaupal) return;
+                const { x, y } = this.chaupal;
+                ctx.fillStyle = this.isNightMode ? '#5a4a34' : '#C19A6B';
+                ctx.fillRect(x - 26, y - 6, 52, 6);
+                ctx.fillStyle = '#6B4423';
+                [-22, -8, 8, 22].forEach(dx => {
+                    ctx.fillRect(x + dx - 2, y - 40, 4, 34);
+                });
+                ctx.fillStyle = '#8B5A2B';
+                ctx.beginPath();
+                ctx.moveTo(x - 30, y - 40);
+                ctx.lineTo(x, y - 54);
+                ctx.lineTo(x + 30, y - 40);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            drawShops(ctx) {
+                (this.shops || []).forEach(s => {
+                    ctx.fillStyle = this.isNightMode ? this.darkenColor('#DAA520') || '#6b5a1e' : s.color;
+                    ctx.fillRect(s.x, s.y - s.h, s.w, s.h);
+                    ctx.fillStyle = this.isNightMode ? '#3a2f1c' : '#5C4033';
+                    ctx.fillRect(s.x - 4, s.y - s.h - 10, s.w + 8, 12);
+                    ctx.fillStyle = this.isNightMode ? '#00ff41' : '#FDF5E6';
+                    ctx.fillRect(s.x + 6, s.y - s.h + 8, s.w - 12, 10);
+                    ctx.fillStyle = '#3a2f1c';
+                    ctx.fillRect(s.x + s.w / 2 - 6, s.y - 14, 12, 14);
+
+                    if (s.kind === 'blacksmith') {
+                        ctx.fillStyle = '#FF4500';
+                        ctx.fillRect(s.x + s.w - 12, s.y - 6, 6, 4);
+                    } else if (s.kind === 'potter') {
+                        ctx.fillStyle = '#B8621B';
+                        ctx.beginPath();
+                        ctx.ellipse(s.x + s.w + 8, s.y - 4, 5, 7, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (s.kind === 'grocery') {
+                        ctx.fillStyle = '#8FBC50';
+                        ctx.fillRect(s.x - 2, s.y - 4, 10, 4);
+                        ctx.fillStyle = '#E9967A';
+                        ctx.fillRect(s.x + 10, s.y - 4, 8, 4);
+                    }
+
+                    ctx.fillStyle = '#000';
+                    ctx.font = '6px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = this.isNightMode ? '#00ff41' : '#1a1a1a';
+                });
+            }
+
+            drawGrainStorage(ctx) {
+                if (!this.grainStorage) return;
+                const { x, y } = this.grainStorage;
+                ctx.fillStyle = '#DEB887';
+                ctx.fillRect(x - 14, y - 30, 28, 30);
+                ctx.fillStyle = '#8B5A2B';
+                ctx.beginPath();
+                ctx.moveTo(x - 18, y - 30);
+                ctx.lineTo(x, y - 46);
+                ctx.lineTo(x + 18, y - 30);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = '#5C4033';
+                for (let i = 0; i < 3; i++) {
+                    ctx.fillRect(x - 10 + i * 8, y - 22, 4, 18);
+                }
+            }
+
+            drawCattleShed(ctx) {
+                if (!this.cattleShed) return;
+                const { x, y } = this.cattleShed;
+                ctx.fillStyle = '#8B5A2B';
+                ctx.fillRect(x - 4, y - 34, 4, 34);
+                ctx.fillRect(x + 40, y - 34, 4, 34);
+                ctx.fillStyle = '#A0522D';
+                ctx.beginPath();
+                ctx.moveTo(x - 10, y - 34);
+                ctx.lineTo(x + 20, y - 48);
+                ctx.lineTo(x + 50, y - 34);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = 'rgba(0,0,0,0.35)';
+                ctx.fillRect(x, y - 22, 40, 22);
+            }
+
+            drawCarts(ctx) {
+                (this.cartParking || []).forEach(c => {
+                    ctx.fillStyle = '#6B4423';
+                    ctx.fillRect(c.x - 16, c.y - 12, 32, 10);
+                    ctx.strokeStyle = '#3a2f1c';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(c.x - 10, c.y, 6, 0, Math.PI * 2);
+                    ctx.moveTo(c.x + 16, c.y);
+                    ctx.arc(c.x + 10, c.y, 6, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.fillStyle = '#8B5A2B';
+                    ctx.fillRect(c.x - 30, c.y - 16, 16, 3);
+                });
+            }
+
+            drawWashingArea(ctx) {
+                if (!this.washingArea) return;
+                const { x, y } = this.washingArea;
+                ctx.fillStyle = '#8B8378';
+                ctx.fillRect(x - 14, y - 4, 28, 6);
+                ctx.strokeStyle = '#5C4033';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(x - 20, y - 26);
+                ctx.lineTo(x + 20, y - 26);
+                ctx.stroke();
+                ['#F5F0E1', '#FF6347', '#4682B4'].forEach((c, i) => {
+                    ctx.fillStyle = c;
+                    ctx.fillRect(x - 16 + i * 14, y - 26, 8, 10);
+                });
+            }
+
+            drawBridge(ctx) {
+                if (!this.bridge) return;
+                const { x, y } = this.bridge;
+                ctx.fillStyle = '#8B5A2B';
+                for (let i = 0; i < 6; i++) {
+                    ctx.fillRect(x - 20 + i * 8, y - 4, 6, 8);
+                }
+                ctx.strokeStyle = '#5C4033';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(x - 22, y - 14);
+                ctx.lineTo(x + 26, y - 14);
+                ctx.stroke();
+                ctx.fillStyle = '#6B4423';
+                ctx.fillRect(x - 22, y - 16, 4, 14);
+                ctx.fillRect(x + 22, y - 16, 4, 14);
+            }
+
+            drawWatchTower(ctx) {
+                if (!this.watchTower) return;
+                const { x, y } = this.watchTower;
+                ctx.fillStyle = '#6B4423';
+                ctx.fillRect(x - 3, y - 70, 6, 70);
+                ctx.fillRect(x - 16, y - 8, 6, 8);
+                ctx.fillRect(x + 10, y - 8, 6, 8);
+                ctx.fillStyle = '#8B5A2B';
+                ctx.fillRect(x - 18, y - 84, 36, 16);
+                ctx.fillStyle = '#5C4033';
+                ctx.beginPath();
+                ctx.moveTo(x - 22, y - 84);
+                ctx.lineTo(x, y - 98);
+                ctx.lineTo(x + 22, y - 84);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            drawRestingPlatform(ctx) {
+                if (!this.restingPlatform) return;
+                const { x, y } = this.restingPlatform;
+                ctx.fillStyle = '#B8926A';
+                ctx.fillRect(x - 34, y - 6, 68, 8);
+                ctx.fillStyle = '#8B5A2B';
+                ctx.fillRect(x - 30, y + 2, 4, 6);
+                ctx.fillRect(x + 26, y + 2, 4, 6);
+            }
+
+            drawTreeTrunks(ctx) {
+                // static hillside tree trunks
+                this.trees.forEach(tree => {
+                    ctx.fillStyle = '#6B4423';
+                    ctx.fillRect(tree.x - 4, tree.trunkTopY, 8, tree.size * 0.6);
+                });
+                // village shade trees
+                (this.villageTrees || []).forEach(tree => {
+                    ctx.fillStyle = '#6B4423';
+                    ctx.fillRect(tree.x - 5, tree.trunkTopY, 10, tree.size * 0.9);
+                });
+                (this.orchard || []).forEach(tree => {
+                    ctx.fillStyle = '#6B4423';
+                    ctx.fillRect(tree.x - 3, tree.trunkTopY, 6, tree.size * 0.7);
+                });
+                if (this.banyan) {
+                    ctx.fillStyle = '#5C4033';
+                    ctx.fillRect(this.banyan.x - 10, this.banyan.trunkTopY, 20, this.banyan.size * 0.55);
+                    // hanging aerial roots
+                    ctx.strokeStyle = '#6B4423';
+                    ctx.lineWidth = 2;
+                    [-24, -14, 14, 24].forEach(dx => {
+                        ctx.beginPath();
+                        ctx.moveTo(this.banyan.x + dx, this.banyan.trunkTopY + 6);
+                        ctx.lineTo(this.banyan.x + dx * 0.6, this.banyan.trunkTopY + 26);
+                        ctx.stroke();
+                    });
+                }
+            }
+
+            // ============ Dynamic (per-frame animated) elements ============
             drawSunMoon() {
                 const centerX = this.canvas.width * 0.8;
                 const centerY = this.canvas.height * 0.15;
                 const radius = 25;
-                
+
                 if (this.isNightMode) {
                     this.ctx.fillStyle = '#FFFACD';
                     this.ctx.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
-                    
                     this.ctx.fillStyle = '#E6E6FA';
                     this.ctx.fillRect(centerX - 10, centerY - 5, 8, 6);
                     this.ctx.fillRect(centerX + 5, centerY + 8, 6, 5);
-                    
                     this.drawStars();
                 } else {
                     this.ctx.fillStyle = '#FFD700';
                     this.ctx.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
-                    
                     this.ctx.fillStyle = '#FFA500';
                     const rays = 8;
                     for (let i = 0; i < rays; i++) {
@@ -1219,7 +2088,6 @@
                         const rayY = centerY + Math.sin(angle) * (radius + 8);
                         const rayEndX = centerX + Math.cos(angle) * (radius + 18);
                         const rayEndY = centerY + Math.sin(angle) * (radius + 18);
-                        
                         this.ctx.fillRect(rayX - 2, rayY - 2, 4, 4);
                         this.ctx.fillRect(rayEndX - 1, rayEndY - 1, 2, 2);
                     }
@@ -1246,11 +2114,11 @@
                             cloud.x = -cloud.size;
                         }
                     }
-                    
-                    this.ctx.fillStyle = this.isNightMode ? 
-                        `rgba(100, 100, 130, ${cloud.opacity})` : 
+
+                    this.ctx.fillStyle = this.isNightMode ?
+                        `rgba(100, 100, 130, ${cloud.opacity})` :
                         `rgba(255, 255, 255, ${cloud.opacity})`;
-                    
+
                     for (let i = 0; i < 5; i++) {
                         const partX = cloud.x + (i * cloud.size / 5);
                         const partY = cloud.y + Math.sin(i) * 5;
@@ -1260,92 +2128,256 @@
                 });
             }
 
-            drawTrees() {
+            // Canopy sways, trunk (drawn in static layer) stays fixed
+            drawTreeCanopies() {
                 const colors = this.getSeasonColors();
                 const treeColor = this.isNightMode ? this.darkenColor(colors.trees) : colors.trees;
-                
+
                 this.trees.forEach(tree => {
-                    if (this.animationsEnabled) {
-                        tree.swayOffset += 0.02;
-                    }
-                    
-                    const sway = Math.sin(tree.swayOffset) * 2;
-                    
-                    this.ctx.fillStyle = '#8B4513';
-                    this.ctx.fillRect(tree.x - 4 + sway, tree.y, 8, tree.size * 0.6);
-                    
+                    if (this.animationsEnabled) tree.swayOffset += 0.02;
+                    const sway = Math.sin(tree.swayOffset) * 3;
                     this.ctx.fillStyle = treeColor;
                     for (let layer = 0; layer < 3; layer++) {
-                        const layerY = tree.y - layer * (tree.size * 0.25);
+                        const layerY = tree.trunkTopY - layer * (tree.size * 0.25);
                         const size = tree.size * (1 - layer * 0.2);
-                        this.ctx.fillRect(tree.x - size/2 + sway, layerY - size/2, size, size/2);
+                        this.ctx.fillRect(tree.x - size / 2 + sway, layerY - size / 2, size, size / 2);
+                    }
+                });
+
+                (this.villageTrees || []).forEach(tree => {
+                    if (this.animationsEnabled) tree.swayOffset += 0.015;
+                    const sway = Math.sin(tree.swayOffset) * 4;
+                    let canopyColor = treeColor;
+                    if (tree.kind === 'mango') canopyColor = this.isNightMode ? '#1a3d1a' : '#2E7D32';
+                    if (tree.kind === 'neem') canopyColor = this.isNightMode ? '#173d17' : '#3F9142';
+                    if (tree.kind === 'peepal') canopyColor = this.isNightMode ? '#1f3d24' : '#4CA153';
+
+                    this.ctx.fillStyle = canopyColor;
+                    for (let layer = 0; layer < 3; layer++) {
+                        const layerY = tree.trunkTopY - layer * (tree.size * 0.3);
+                        const size = tree.size * (1.3 - layer * 0.25);
+                        this.ctx.beginPath();
+                        this.ctx.ellipse(tree.x + sway * (1 - layer * 0.2), layerY, size / 1.6, size / 2.2, 0, 0, Math.PI * 2);
+                        this.ctx.fill();
+                    }
+                });
+
+                (this.orchard || []).forEach(tree => {
+                    if (this.animationsEnabled) tree.swayOffset += 0.018;
+                    const sway = Math.sin(tree.swayOffset) * 2.5;
+                    this.ctx.fillStyle = this.isNightMode ? '#1a3d1a' : '#3F9142';
+                    this.ctx.beginPath();
+                    this.ctx.ellipse(tree.x + sway, tree.trunkTopY - tree.size * 0.3, tree.size / 1.8, tree.size / 2.2, 0, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.fillStyle = '#FF6347';
+                    for (let i = 0; i < 3; i++) {
+                        this.ctx.fillRect(tree.x + sway - 6 + i * 6, tree.trunkTopY - tree.size * 0.35, 2, 2);
+                    }
+                });
+
+                if (this.banyan) {
+                    if (this.animationsEnabled) this.banyan.swayOffset += 0.012;
+                    const sway = Math.sin(this.banyan.swayOffset) * 5;
+                    const b = this.banyan;
+                    this.ctx.fillStyle = this.isNightMode ? this.darkenColor(colors.trees) : colors.trees;
+                    for (let layer = 0; layer < 4; layer++) {
+                        const layerY = b.trunkTopY - layer * (b.size * 0.22);
+                        const size = b.size * (1.5 - layer * 0.2);
+                        this.ctx.beginPath();
+                        this.ctx.ellipse(b.x + sway * (1 - layer * 0.15), layerY, size / 1.4, size / 2, 0, 0, Math.PI * 2);
+                        this.ctx.fill();
+                    }
+                }
+            }
+
+            drawWaterShimmer() {
+                const shimmer = Math.sin(this.gameTime * 0.002) * 0.15 + 0.35;
+                this.ctx.fillStyle = `rgba(255,255,255,${shimmer * 0.4})`;
+
+                if (this.pond) {
+                    const { x, y, rx } = this.pond;
+                    this.ctx.fillRect(x - rx * 0.5, y - 3, rx * 0.6, 2);
+                    this.ctx.fillStyle = '#3E8E41';
+                    this.ctx.beginPath();
+                    this.ctx.ellipse(x - 14, y + 6, 6, 3, 0, 0, Math.PI * 2);
+                    this.ctx.ellipse(x + 10, y - 4, 5, 2.5, 0, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+
+                if (this.river) {
+                    const { x0, x1, topY } = this.river;
+                    this.ctx.fillStyle = `rgba(255,255,255,${shimmer * 0.3})`;
+                    for (let ry = topY; ry < this.canvas.height; ry += 22) {
+                        const off = Math.sin(this.gameTime * 0.003 + ry) * 6;
+                        this.ctx.fillRect(x0 + 8 + off, ry, (x1 - x0) - 16, 2);
+                    }
+                }
+            }
+
+            drawFireAndFestival() {
+                if (this.fireplace) {
+                    const { x, y } = this.fireplace;
+                    this.ctx.fillStyle = '#3a3a3a';
+                    this.ctx.beginPath();
+                    this.ctx.ellipse(x, y, 12, 5, 0, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    if (this.animationsEnabled) this.fireplace.flicker += 0.3;
+                    const flick = Math.sin(this.fireplace.flicker) * 3;
+                    this.ctx.fillStyle = '#FF6347';
+                    this.ctx.fillRect(x - 4, y - 10 - flick, 3, 10 + flick);
+                    this.ctx.fillRect(x, y - 14 - flick, 3, 14 + flick);
+                    this.ctx.fillRect(x + 4, y - 8 - flick, 3, 8 + flick);
+                    this.ctx.fillStyle = '#FFD700';
+                    this.ctx.fillRect(x - 1, y - 8 - flick * 0.6, 2, 6);
+                }
+
+                if (this.festival) {
+                    const { x, y } = this.festival;
+                    const sway = this.animationsEnabled ? Math.sin(this.gameTime * 0.004) * 4 : 0;
+                    const flagColors = ['#FF6347', '#FFD700', '#00ff41', '#4682B4', '#9932CC'];
+                    this.ctx.strokeStyle = '#8B5A2B';
+                    this.ctx.lineWidth = 1;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x - 4, y - 40);
+                    this.ctx.quadraticCurveTo(x - 17 + sway * 0.3, y - 50, x - 30, y - 40);
+                    this.ctx.stroke();
+                    for (let i = 0; i < 6; i++) {
+                        const fx = x - 4 - i * 4.4;
+                        const fy = y - 40 - Math.sin(i * 0.9) * 9;
+                        this.ctx.fillStyle = flagColors[i % flagColors.length];
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(fx, fy);
+                        this.ctx.lineTo(fx + 4 + sway * 0.2, fy + 6);
+                        this.ctx.lineTo(fx - 4, fy + 6);
+                        this.ctx.closePath();
+                        this.ctx.fill();
+                    }
+                }
+            }
+
+            drawParticles() {
+                if (!this.particlesEnabled && this.particles.every(p => p.type !== 'burst')) return;
+
+                this.particles.forEach((particle, index) => {
+                    if (this.animationsEnabled) {
+                        particle.x += particle.vx;
+                        particle.y += particle.vy;
+
+                        if (particle.type === 'leaf') {
+                            particle.rotation += particle.rotationSpeed;
+                        }
+                        if (particle.type === 'burst') {
+                            particle.vy += particle.gravity;
+                            particle.rotation += particle.rotationSpeed;
+                            particle.life -= 1;
+                        }
+                    }
+
+                    if (particle.type === 'burst' && particle.life <= 0) {
+                        this.particles.splice(index, 1);
+                        return;
+                    }
+
+                    if (particle.type !== 'burst' && particle.y > this.canvas.height + 50) {
+                        particle.y = -50;
+                        particle.x = Math.random() * this.canvas.width;
+                    }
+
+                    this.ctx.save();
+                    this.ctx.translate(particle.x, particle.y);
+
+                    if (particle.type === 'snow') {
+                        this.ctx.fillStyle = '#FFFFFF';
+                        this.ctx.fillRect(-particle.size / 2, -particle.size / 2, particle.size, particle.size);
+                    } else if (particle.type === 'leaf' || particle.type === 'burst') {
+                        this.ctx.rotate(particle.rotation);
+                        this.ctx.fillStyle = particle.color;
+                        this.ctx.fillRect(-particle.size / 2, -particle.size / 2, particle.size, particle.size * 0.6);
+                    }
+
+                    this.ctx.restore();
+                });
+
+                if (!this.particlesEnabled) return;
+
+                this.weatherEffects.forEach(effect => {
+                    if (this.animationsEnabled) {
+                        effect.x += effect.vx;
+                        effect.y += effect.vy;
+                    }
+
+                    if (effect.y > this.canvas.height + 20) {
+                        effect.y = -20;
+                        effect.x = Math.random() * this.canvas.width;
+                    }
+
+                    if (effect.type === 'rain' || effect.type === 'storm') {
+                        this.ctx.fillStyle = '#87CEEB';
+                        this.ctx.fillRect(effect.x, effect.y, 1, 8);
+                    } else if (effect.type === 'snow') {
+                        this.ctx.fillStyle = '#FFFFFF';
+                        this.ctx.fillRect(effect.x - effect.size / 2, effect.y - effect.size / 2,
+                            effect.size, effect.size);
                     }
                 });
             }
 
-            drawGround() {
-                const groundY = this.canvas.height * 0.65;
-                const colors = this.getSeasonColors();
-                this.ctx.fillStyle = this.isNightMode ? this.darkenColor(colors.ground) : colors.ground;
-                this.ctx.fillRect(0, groundY, this.canvas.width, this.canvas.height - groundY);
-                
-                this.ctx.fillStyle = this.isNightMode ? '#8B7355' : '#DEB887';
-                const pathY = this.canvas.height * 0.75;
-                this.ctx.fillRect(0, pathY, this.canvas.width, 15);
-            }
+            drawBirds() {
+                this.birds.forEach((bird, index) => {
+                    if (this.animationsEnabled) {
+                        bird.x += bird.vx;
+                        bird.y += bird.vy;
+                        bird.wingFlap += 0.4;
+                    }
 
-            drawBuildings() {
-                this.buildings.forEach(building => {
-                    const isLit = this.isNightMode || this.timeOfDay === 'evening';
-                    
-                    this.ctx.fillStyle = this.isNightMode ? '#654321' : '#8B4513';
-                    this.ctx.fillRect(building.x, building.y, building.width, building.height);
-                    
-                    this.ctx.fillStyle = this.isNightMode ? '#4B0000' : '#654321';
-                    this.ctx.fillRect(building.x - 5, building.y - 15, building.width + 10, 20);
-                    
-                    this.ctx.fillStyle = isLit ? '#00ff41' : (this.isNightMode ? '#1a1a1a' : '#87CEEB');
-                    this.ctx.fillRect(building.x + 15, building.y + 15, 15, 15);
-                    this.ctx.fillRect(building.x + 35, building.y + 15, 15, 15);
-                    
-                    this.ctx.fillStyle = this.isNightMode ? '#2F2F2F' : '#4B0000';
-                    this.ctx.fillRect(building.x + 25, building.y + 35, 18, 25);
+                    if (bird.x < -100 || bird.x > this.canvas.width + 100) {
+                        this.birds.splice(index, 1);
+                        return;
+                    }
+
+                    this.ctx.fillStyle = bird.color;
+                    this.ctx.fillRect(bird.x - 2, bird.y, bird.size * 0.6, bird.size * 0.4);
+
+                    const wingOffset = Math.sin(bird.wingFlap) * 4;
+                    this.ctx.fillRect(bird.x - 4, bird.y + wingOffset - 1, bird.size, bird.size * 0.3);
                 });
+
+                this.spawnBirds();
             }
 
             drawVillagers() {
                 this.villagers.forEach(villager => {
-                    if (this.animationsEnabled && villager.activity === 'creating') {
+                    if (this.animationsEnabled && (villager.activity === 'creating' || villager.activity === 'tending fields')) {
                         villager.x += villager.vx * villager.direction;
                         if (villager.x < 100 || villager.x > this.canvas.width - 100) {
                             villager.direction *= -1;
                         }
                     }
-                    
+
                     villager.workTimer += 16;
-                    
+
                     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
                     this.ctx.fillRect(villager.x - 8, villager.y + 5, 16, 4);
-                    
+
                     this.ctx.fillStyle = villager.color;
                     this.ctx.fillRect(villager.x - 8, villager.y - 16, 16, 20);
-                    
+
                     this.ctx.fillStyle = '#FFDBAC';
                     this.ctx.fillRect(villager.x - 6, villager.y - 20, 12, 8);
-                    
+
                     this.ctx.fillStyle = '#000000';
                     this.ctx.fillRect(villager.x - 4, villager.y - 18, 2, 2);
                     this.ctx.fillRect(villager.x + 2, villager.y - 18, 2, 2);
-                    
+
                     if (villager.animating && Date.now() - villager.animTime < 1500) {
                         this.ctx.fillStyle = '#FFDBAC';
                         const waveY = villager.y - 12 + Math.sin((Date.now() - villager.animTime) * 0.01) * 3;
                         this.ctx.fillRect(villager.x + 10, waveY, 6, 3);
-                        
+
                         if (Math.random() < 0.2) {
                             this.ctx.fillStyle = '#00ff41';
-                            this.ctx.fillRect(villager.x + Math.random() * 16 - 8, 
-                                           villager.y - Math.random() * 20, 2, 2);
+                            this.ctx.fillRect(villager.x + Math.random() * 16 - 8,
+                                villager.y - Math.random() * 20, 2, 2);
                         }
                     }
                 });
@@ -1358,13 +2390,13 @@
                             animal.x += animal.vx;
                             animal.y += animal.vy;
                             animal.vy += 0.2;
-                            
-                            if (animal.y > this.canvas.height * 0.78) {
-                                animal.y = this.canvas.height * 0.78;
+
+                            if (animal.y > this.canvas.height * 0.82) {
+                                animal.y = this.canvas.height * 0.82;
                                 animal.vy = animal.vy * -0.6;
                                 animal.vx *= 0.85;
                             }
-                            
+
                             if (Date.now() - animal.moveTime > 2000) {
                                 animal.moving = false;
                                 animal.vx = (Math.random() - 0.5) * 0.3;
@@ -1376,96 +2408,41 @@
                             }
                         }
                     }
-                    
+
+                    this.ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                    this.ctx.beginPath();
+                    this.ctx.ellipse(animal.x, animal.y + animal.size * 0.35 + 3, animal.size * 0.5, 3, 0, 0, Math.PI * 2);
+                    this.ctx.fill();
+
                     this.ctx.fillStyle = animal.color;
-                    const x = animal.x - animal.size/2;
-                    const y = animal.y - animal.size/2;
+                    const x = animal.x - animal.size / 2;
+                    const y = animal.y - animal.size / 2;
                     this.ctx.fillRect(x, y, animal.size, animal.size * 0.7);
-                    
+
                     if (animal.type === 'cat') {
                         this.ctx.fillRect(x + 2, y - 4, 3, 5);
                         this.ctx.fillRect(x + 8, y - 4, 3, 5);
                     } else if (animal.type === 'dog') {
                         this.ctx.fillRect(x - 2, y - 2, 4, 6);
                         this.ctx.fillRect(x + animal.size - 2, y - 2, 4, 6);
-                    }
-                });
-            }
-
-            drawBirds() {
-                this.birds.forEach((bird, index) => {
-                    if (this.animationsEnabled) {
-                        bird.x += bird.vx;
-                        bird.y += bird.vy;
-                        bird.wingFlap += 0.4;
-                    }
-                    
-                    if (bird.x < -100 || bird.x > this.canvas.width + 100) {
-                        this.birds.splice(index, 1);
-                        return;
-                    }
-                    
-                    this.ctx.fillStyle = bird.color;
-                    this.ctx.fillRect(bird.x - 2, bird.y, bird.size * 0.6, bird.size * 0.4);
-                    
-                    const wingOffset = Math.sin(bird.wingFlap) * 4;
-                    this.ctx.fillRect(bird.x - 4, bird.y + wingOffset - 1, bird.size, bird.size * 0.3);
-                });
-                
-                this.spawnBirds();
-            }
-
-            drawParticles() {
-                if (!this.particlesEnabled) return;
-                
-                this.particles.forEach((particle, index) => {
-                    if (this.animationsEnabled) {
-                        particle.x += particle.vx;
-                        particle.y += particle.vy;
-                        
-                        if (particle.type === 'leaf') {
-                            particle.rotation += particle.rotationSpeed;
-                        }
-                    }
-                    
-                    if (particle.y > this.canvas.height + 50) {
-                        particle.y = -50;
-                        particle.x = Math.random() * this.canvas.width;
-                    }
-                    
-                    this.ctx.save();
-                    this.ctx.translate(particle.x, particle.y);
-                    
-                    if (particle.type === 'snow') {
-                        this.ctx.fillStyle = '#FFFFFF';
-                        this.ctx.fillRect(-particle.size/2, -particle.size/2, particle.size, particle.size);
-                    } else if (particle.type === 'leaf') {
-                        this.ctx.rotate(particle.rotation);
-                        this.ctx.fillStyle = particle.color;
-                        this.ctx.fillRect(-particle.size/2, -particle.size/2, particle.size, particle.size * 0.6);
-                    }
-                    
-                    this.ctx.restore();
-                });
-                
-                this.weatherEffects.forEach(effect => {
-                    if (this.animationsEnabled) {
-                        effect.x += effect.vx;
-                        effect.y += effect.vy;
-                    }
-                    
-                    if (effect.y > this.canvas.height + 20) {
-                        effect.y = -20;
-                        effect.x = Math.random() * this.canvas.width;
-                    }
-                    
-                    if (effect.type === 'rain' || effect.type === 'storm') {
-                        this.ctx.fillStyle = '#87CEEB';
-                        this.ctx.fillRect(effect.x, effect.y, 1, 8);
-                    } else if (effect.type === 'snow') {
-                        this.ctx.fillStyle = '#FFFFFF';
-                        this.ctx.fillRect(effect.x - effect.size/2, effect.y - effect.size/2, 
-                                        effect.size, effect.size);
+                    } else if (animal.type === 'cow') {
+                        this.ctx.fillStyle = '#3a2f1c';
+                        this.ctx.fillRect(x + 2, y - 6, 5, 6);
+                        this.ctx.fillRect(x + animal.size - 7, y - 6, 5, 6);
+                        this.ctx.fillStyle = '#000';
+                        this.ctx.fillRect(x + animal.size - 4, y + 2, 3, 3);
+                        this.ctx.fillStyle = '#5c4a35';
+                        this.ctx.fillRect(x + animal.size * 0.3, y + 4, 6, 5);
+                        this.ctx.fillRect(x + animal.size * 0.6, y + 8, 5, 5);
+                    } else if (animal.type === 'goat') {
+                        this.ctx.fillStyle = '#4a3a28';
+                        this.ctx.fillRect(x + animal.size - 6, y - 6, 2, 6);
+                        this.ctx.fillRect(x + animal.size - 2, y - 6, 2, 6);
+                    } else if (animal.type === 'hen') {
+                        this.ctx.fillStyle = '#8B0000';
+                        this.ctx.fillRect(x + animal.size - 4, y - 4, 4, 4);
+                        this.ctx.fillStyle = '#FFA500';
+                        this.ctx.fillRect(x + animal.size, y, 3, 2);
                     }
                 });
             }
@@ -1480,9 +2457,9 @@
                 this.particlesEnabled = !this.particlesEnabled;
                 const button = document.getElementById('toggleParticles');
                 button.textContent = this.particlesEnabled ? '❄️ EFFECTS' : '🚫 NO FX';
-                
+
                 if (!this.particlesEnabled) {
-                    this.particles = [];
+                    this.particles = this.particles.filter(p => p.type === 'burst');
                     this.weatherEffects = [];
                 } else {
                     this.updateSeasonalElements();
@@ -1496,31 +2473,21 @@
                 button.textContent = this.isNightMode ? '☀️ DAY' : '🌙 NIGHT';
             }
 
-            darkenColor(color) {
-                const colorMap = {
-                    '#87CEEB': '#4a5568', '#00BFFF': '#2d3748', '#FFA500': '#744210',
-                    '#B0C4DE': '#2d3748', '#90EE90': '#2d5016', '#32CD32': '#1a4c1a',
-                    '#DAA520': '#8b6914', '#F0F8FF': '#e2e8f0', '#228B22': '#0d4f0d',
-                    '#006400': '#003300', '#FF6347': '#8b2635', '#2F4F4F': '#1a2e2e'
-                };
-                return colorMap[color] || color;
-            }
-
             updateUI() {
                 document.getElementById('location').textContent = this.location.city;
-                document.getElementById('currentSeason').textContent = 
+                document.getElementById('currentSeason').textContent =
                     this.currentSeason.toUpperCase();
                 this.updateTime();
             }
 
             updateTime() {
                 const now = new Date();
-                const timeString = now.toLocaleTimeString([], { 
-                    hour: '2-digit', 
+                const timeString = now.toLocaleTimeString([], {
+                    hour: '2-digit',
                     minute: '2-digit'
                 });
                 document.getElementById('localTime').textContent = timeString;
-                
+
                 const hour = now.getHours();
                 if (hour >= 5 && hour < 12) this.timeOfDay = 'morning';
                 else if (hour >= 12 && hour < 17) this.timeOfDay = 'afternoon';
@@ -1536,10 +2503,19 @@
 
             render() {
                 this.gameTime += 16;
+
+                if (this.needsStaticRebuild) {
+                    this.rebuildStaticLayer();
+                }
+
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                
-                this.drawBackground();
-                this.drawBuildings();
+                this.ctx.drawImage(this.staticCanvas, 0, 0);
+
+                this.drawSunMoon();
+                this.drawClouds();
+                this.drawTreeCanopies();
+                this.drawWaterShimmer();
+                this.drawFireAndFestival();
                 this.drawParticles();
                 this.drawBirds();
                 this.drawVillagers();
@@ -1556,6 +2532,7 @@
                 gameLoop();
             }
         }
+
 
         // Initialize village
         const village = new PixelVillage();
