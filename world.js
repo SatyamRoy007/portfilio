@@ -101,7 +101,7 @@
       autumn: { grass: '#b7ad7c', light: '#c9bd8d', shade: '#a0966a', field: '#c5a269', leaf: '#936d43', leafLight: '#b38c51', blossom: '#d3ad64', dirt: '#d3bb89' },
       winter: { grass: '#dce1ce', light: '#edf0df', shade: '#becbb7', field: '#bac3a5', leaf: '#496959', leafLight: '#799080', blossom: '#edf0df', dirt: '#cbc9ab' },
     }[state.season];
-    return { ...season, sky: night ? '#172b35' : '#f4efdf', mountainFar: night ? '#334953' : '#cbd5c3', mountain: night ? '#31484c' : '#afc0ad', mountainShade: night ? '#243d42' : '#99af9b', river: night ? '#31585b' : '#669d95', riverLight: night ? '#567c7d' : '#96bcb0' };
+    return { ...season, sky: night ? '#172b35' : '#f4efdf', mountainFar: night ? '#334953' : '#cbd5c3', mountain: night ? '#31484c' : '#afc0ad', mountainShade: night ? '#243d42' : '#99af9b', river: night ? '#285962' : '#669d95', riverLight: night ? '#88b8b2' : '#b6d8c2' };
   }
 
   function local(c, x, y, scale, draw) { c.save(); c.translate(Math.round(x), Math.round(y)); c.scale(scale, scale); draw(); c.restore(); }
@@ -157,9 +157,10 @@
   function cart(c,x,y){local(c,x,y,S,()=>{shadow(c,0,1,22,3);rect(c,-12,-9,25,8,'#a18758');rect(c,-14,-11,28,3,'#b79a65');[-8,8].forEach(w=>{rect(c,w-3,-3,6,7,'#695b3e');rect(c,w-1,-1,2,3,'#bdac79');});rect(c,11,-6,14,2,'#82714c');rect(c,-8,-16,5,5,'#c5b178');rect(c,-2,-18,8,7,'#d0bc82');});}
   function cattleShelter(c,x,y){local(c,x,y,S*.85,()=>{shadow(c,0,1,48,5);rect(c,-23,-24,46,24,'#6c765245');rect(c,-24,-28,3,30,'#8e8154');rect(c,22,-28,3,30,'#756e49');polygon(c,[[-30,-26],[-19,-38],[18,-38],[31,-26]],'#b5a16a');rect(c,-30,-26,61,3,'#928053');for(let n=0;n<7;n++)rect(c,-22+n*7,-31,5,1,'#d2bd7d');rect(c,-24,1,49,2,'#b7aa70');});}
   function pond(c,x,y,size,p){local(c,x,y,S*size,()=>{
-    shadow(c,0,7,62,7);polygon(c,[[-34,-2],[-27,-14],[-10,-20],[16,-18],[32,-8],[37,3],[29,12],[7,17],[-20,14],[-34,6]],'#829c82');
-    polygon(c,[[-30,-2],[-22,-11],[-8,-16],[15,-14],[28,-6],[32,2],[24,9],[5,13],[-17,10],[-29,5]],p.river);
-    rect(c,-18,-6,20,2,p.riverLight);rect(c,5,4,16,2,p.riverLight);rect(c,-8,8,10,1,'#b0d0bc');
+    shadow(c,0,8,70,8);polygon(c,[[-39,-2],[-31,-16],[-12,-23],[19,-21],[37,-9],[43,3],[34,15],[8,21],[-23,17],[-39,7]],'#718d75');
+    polygon(c,[[-35,-2],[-26,-13],[-9,-19],[17,-17],[33,-7],[37,2],[29,11],[6,16],[-20,13],[-34,5]],p.river);
+    polygon(c,[[-25,-2],[-17,-9],[-5,-13],[15,-11],[25,-5],[29,1],[21,7],[5,11],[-13,8],[-24,4]],p.riverLight);
+    rect(c,-21,-7,25,2,'#d9edcf');rect(c,4,5,19,2,'#d9edcf');rect(c,-10,9,13,1,'#c9e6ca');
     [[-30,-8],[-26,-14],[29,-6],[32,1],[-22,10]].forEach(([px,py])=>{rect(c,px,py,2,10,'#657d4c');rect(c,px-2,py,6,2,p.leafLight);});
     [[-13,-15],[17,-12],[-22,4],[24,7]].forEach(([px,py])=>{rect(c,px,py,5,2,'#d9c679');rect(c,px+1,py-1,2,1,'#f1df9d');});
   });}
@@ -360,8 +361,8 @@
   function pondLife(c){
     const s=sites(),p=palette(),x=s.pond[0]*W,y=s.pond[1]*H,scale=(mobile?.72:1)*S;
     if(state.season!=='winter'){
-      for(let i=0;i<5;i++){const fx=x+Math.sin(elapsed*1.4+i*1.7)*20*scale,fy=y+Math.cos(elapsed*1.1+i*1.3)*7*scale;local(c,fx,fy,scale,()=>{rect(c,-3,0,6,2,i%2?'#e1a75a':'#d7d3aa');rect(c,3,-1,2,4,i%2?'#b87a4a':'#a9a879');rect(c,-4,-1,2,4,p.riverLight);});}
-      for(let i=0;i<3;i++){const ring=(elapsed*1.2+i*3)%10;const rx=x+(i-1)*12*scale,ry=y+5*scale;rect(c,rx-ring,ry,ring*2+2,1,'#c1d9c2a0');}
+      for(let i=0;i<5;i++){const fx=x+Math.sin(elapsed*1.4+i*1.7)*22*scale,fy=y+Math.cos(elapsed*1.1+i*1.3)*8*scale;local(c,fx,fy,scale,()=>{const body=i%2?'#f0b464':'#f3e1a8';rect(c,-4,0,8,3,body);rect(c,4,-1,3,5,i%2?'#c8784c':'#c9a862');rect(c,-6,-1,3,5,'#e7f0c7');rect(c,1,0,1,1,'#465c51');});}
+      for(let i=0;i<3;i++){const ring=(elapsed*1.2+i*3)%13;const rx=x+(i-1)*13*scale,ry=y+6*scale;rect(c,rx-ring,ry,ring*2+3,1,'#e3f3d4a8');rect(c,rx-ring+2,ry+1,Math.max(2,ring*2-1),1,'#a8d4bf96');}
     }
     if(!shelterTime()&&['afternoon','evening'].includes(timeBand())){
       child(c,x-31*scale,y+14*scale,0,'ball');child(c,x+25*scale,y+13*scale,1,'skip');child(c,x-10*scale,y+19*scale,2,'play');
@@ -377,10 +378,12 @@
   function drawRiverFlow(c){
     if(!state.effects)return;
     const p=palette(),route=riverRoute(),speed=elapsed*.18;
-    for(let i=0;i<26;i++){
-      const progress=(i/26+speed)%1,raw=progress*(route.length-1),index=Math.floor(raw),blend=raw-index,a=route[index],b=route[Math.min(route.length-1,index+1)];
+    for(let i=0;i<38;i++){
+      const progress=(i/38+speed)%1,raw=progress*(route.length-1),index=Math.floor(raw),blend=raw-index,a=route[index],b=route[Math.min(route.length-1,index+1)];
       const x=(a[0]+(b[0]-a[0])*blend)*W,y=(a[1]+(b[1]-a[1])*blend)*H;
-      const offset=Math.sin(i*2.17+elapsed*2)*W*.008;rect(c,x+offset,y,Math.max(2,S*3),Math.max(1,S*.8),i%3?'#b7d3bd':p.riverLight);
+      const offset=Math.sin(i*2.17+elapsed*2)*W*.010;const width=Math.max(3,S*(i%4===0?7:5));
+      rect(c,x+offset-width/2,y,width,Math.max(1,S*1.15),i%4===0?'#e0f0d4':p.riverLight);
+      if(i%3===0)rect(c,x+offset+width/2,y-1,Math.max(2,S*2),1,'#d7eed2');
     }
   }
   function windLife(c){
