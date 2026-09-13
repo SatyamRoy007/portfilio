@@ -120,7 +120,11 @@
     rect(c,0,0,W,H,p.sky);
     if(!state.night){rect(c,0,H*.46,W,H*.12,'#e7e9d5');rect(c,0,0,W,H*.44,'#f4efdf');}
     const sunX=W*(mobile?.83:.91),sunY=H*(mobile?.24:.15),radius=mobile?14:21;
-    if(state.night){rect(c,sunX-radius,sunY-radius,2*radius,2*radius,'#e8e0b9');rect(c,sunX-radius+5,sunY-radius-3,2*radius,2*radius-2,p.sky);}
+    if(state.night){
+      const moon=[[-.4,-1],[.4,-1],[.4,-.85],[.7,-.85],[.7,-.6],[.9,-.6],[.9,-.3],[1,-.3],[1,.3],[.9,.3],[.9,.6],[.7,.6],[.7,.85],[.4,.85],[.4,1],[-.4,1],[-.4,.85],[-.7,.85],[-.7,.6],[-.9,.6],[-.9,.3],[-1,.3],[-1,-.3],[-.9,-.3],[-.9,-.6],[-.7,-.6],[-.7,-.85],[-.4,-.85]];
+      polygon(c,moon.map(([x,y])=>[sunX+x*radius,sunY+y*radius]),'#e8e0b9');
+      polygon(c,moon.map(([x,y])=>[sunX+(x+.4)*radius,sunY+(y-.26)*radius]),p.sky);
+    }
     else{rect(c,sunX-radius+5,sunY-radius,2*radius-10,2*radius,'#e4c277');rect(c,sunX-radius,sunY-radius+5,2*radius,2*radius-10,'#e4c277');rect(c,sunX-radius+3,sunY-radius+3,2*radius-6,2*radius-6,'#eccd89');}
     polygon(c,[[W*.36,H*.59],[W*.52,H*.405],[W*.60,H*.48],[W*.73,H*.315],[W*.82,H*.42],[W*.93,H*.30],[W*1.1,H*.59]],p.mountainFar);
     polygon(c,[[W*.49,H*.59],[W*.62,H*.43],[W*.7,H*.47],[W*.8,H*.375],[W*.86,H*.43],[W*.97,H*.36],[W*1.1,H*.61]],p.mountain);
