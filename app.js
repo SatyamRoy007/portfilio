@@ -42,7 +42,7 @@
   $$('[data-view]').forEach(button => button.addEventListener('click', () => showView(button.dataset.view)));
   window.addEventListener('popstate', () => showView(location.hash.slice(1), {historyMode:null}));
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && !$('#world-settings').open && activeView !== 'home') showView('home');
+    if (event.key === 'Escape' && !$('#world-settings').open && !$('#village-explore').open && activeView !== 'home') showView('home');
   });
   function tabKeys(group) {
     group.addEventListener('keydown', event => {
@@ -122,15 +122,15 @@
   form.addEventListener('input', event=>{event.target.setCustomValidity?.('');$('#draft-result').hidden = true;$('#draft-link').removeAttribute('href');});
   const settings = $('#world-settings');
   function openSettings(){syncWorld();settings.showModal();}
-  $('#open-settings').addEventListener('click',openSettings);$('#world-status-button').addEventListener('click',openSettings);
+  $('#open-settings').addEventListener('click',openSettings);
   $('#close-settings').addEventListener('click',()=>settings.close());
   settings.addEventListener('click',event=>{if(event.target !== settings) return;const b=settings.getBoundingClientRect();if(event.clientX<b.left||event.clientX>b.right||event.clientY<b.top||event.clientY>b.bottom)settings.close();});
   function syncWorld(incoming){
     const state = incoming || window.villageWorld?.getState();if(!state)return;
-    document.body.dataset.night = String(state.night);
+    document.body.dataset.night = String(state.sceneNight ?? state.night);
     $('#world-season').textContent = state.season[0].toUpperCase() + state.season.slice(1);
     $('#world-day').textContent = `Day ${state.day}`;
-    $('#setting-season').value=state.season;$('#setting-weather').value=state.weather;
+    $('#setting-season').value=state.autoSeason ? 'auto' : state.season;$('#setting-weather').value=state.weather;
     for(const key of ['night','paused','effects','sound']) $(`#setting-${key}`).checked=Boolean(state[key]);
     $('#quick-pause').setAttribute('aria-pressed',String(state.paused));
     $('#quick-pause').innerHTML=`${icon(state.paused?'play':'pause')}<span>${state.paused?'Play world':'Pause world'}</span>`;

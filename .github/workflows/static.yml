@@ -23,11 +23,13 @@ jobs:
           node --check app.js
           node --check content.js
           node --check world.js
+          node --check journal.js
+          node --check village-ui.js
       - uses: actions/configure-pages@v5
       - name: Prepare static website
         run: |
           mkdir _site
-          cp index.html style.css app.js content.js world.js _site/
+          cp index.html style.css village-ui.css app.js content.js journal.js world.js village-ui.js _site/
           cp -R assets licenses _site/
       - uses: actions/upload-pages-artifact@v3
         with:
