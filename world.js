@@ -231,9 +231,7 @@
     const banks=riverRoute(s);
     drawPath(c,banks,Math.max(10,W*.068),'#c4c7a3');drawPath(c,banks,Math.max(7,W*.052),p.river);
     drawPath(c,banks.map(([x,y])=>[x-.015,y]),Math.max(2,W*.007),p.riverLight);
-    // The river starts in a valley: the closest ridges sit in front of the water source.
-    polygon(c,[[W*(rx-.13),H*.61],[W*(rx-.07),H*.50],[W*(rx-.025),H*.56],[W*(rx-.02),H*.61]],p.mountainShade);
-    polygon(c,[[W*(rx+.02),H*.61],[W*(rx+.09),H*.45],[W*(rx+.15),H*.54],[W*(rx+.17),H*.61]],p.mountain);
+    // The source begins below the foothills so the water never cuts across a mountain face.
     // Far hedges, tiny cypresses, terraces.
     for(let i=0;i<18;i++){const x=W*(.43+i*.034);tree(c,x,H*(.584+Math.sin(i*3)*.014),.21+(i%3)*.035,'pine',p);}
     const fieldX=W*(mobile?.025:.067),fieldY=H*(mobile?.792:.786),fieldW=W*(mobile?.28:.18),fieldH=H*(mobile?.1:.1);
