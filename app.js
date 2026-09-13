@@ -122,7 +122,7 @@
   form.addEventListener('input', event=>{event.target.setCustomValidity?.('');$('#draft-result').hidden = true;$('#draft-link').removeAttribute('href');});
   const settings = $('#world-settings');
   function openSettings(){syncWorld();settings.showModal();}
-  $('#open-settings').addEventListener('click',openSettings);
+  $$('#open-settings, #open-settings-quick').forEach(button=>button.addEventListener('click',openSettings));
   $('#close-settings').addEventListener('click',()=>settings.close());
   settings.addEventListener('click',event=>{if(event.target !== settings) return;const b=settings.getBoundingClientRect();if(event.clientX<b.left||event.clientX>b.right||event.clientY<b.top||event.clientY>b.bottom)settings.close();});
   function syncWorld(incoming){

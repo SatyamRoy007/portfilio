@@ -12,3 +12,5 @@
 .note-card>p{white-space:normal}
 @media(max-width:760px){.explore-page[data-note-mode=read] .notes-layout>div:first-child>.eyebrow,.explore-page[data-note-mode=read] .notes-layout>div:first-child>h3,.explore-page[data-note-mode=read] .notes-intro{display:none}.explore-page[data-note-mode=read] .note-modes{margin-top:0}.note-card.long-note>p{font-size:21px}}
 @media(max-width:760px) and (max-height:680px){.note-card.long-note>p{font-size:18px}}
+.world-status{align-items:center}.scene-control{display:inline-flex;align-items:center;gap:6px;align-self:stretch;padding-left:10px!important;border-left:1px solid #9cac8a70!important;color:#526b4b;font-size:9px!important;font-weight:700!important;white-space:nowrap}.scene-control svg{width:14px;height:14px}.settings-intro{font-size:10px;line-height:1.65;color:#718064;margin:-11px 0 17px}
+@media(max-width:760px){.world-status{gap:7px}.scene-control{font-size:8px!important;padding-left:7px!important}.scene-control svg{width:12px;height:12px}.settings-intro{font-size:9px;margin:-12px 0 15px}}
