@@ -172,7 +172,7 @@
   };
   function riverRoute(s = sites()) {
     const rx = s.river;
-    return [[rx+.014,.505],[rx-.015,.565],[rx-.047,.624],[rx+.015,.696],[rx+.026,.752],[rx-.025,.815],[rx+.012,.88],[rx+.055,1.03]];
+    return [[rx+.014,.575],[rx-.015,.605],[rx-.047,.644],[rx+.015,.704],[rx+.026,.752],[rx-.025,.815],[rx+.012,.88],[rx+.055,1.03]];
   }
 
   function seasonalDecor(c) {
@@ -231,6 +231,9 @@
     const banks=riverRoute(s);
     drawPath(c,banks,Math.max(10,W*.068),'#c4c7a3');drawPath(c,banks,Math.max(7,W*.052),p.river);
     drawPath(c,banks.map(([x,y])=>[x-.015,y]),Math.max(2,W*.007),p.riverLight);
+    // The river starts in a valley: the closest ridges sit in front of the water source.
+    polygon(c,[[W*(rx-.13),H*.61],[W*(rx-.07),H*.50],[W*(rx-.025),H*.56],[W*(rx-.02),H*.61]],p.mountainShade);
+    polygon(c,[[W*(rx+.02),H*.61],[W*(rx+.09),H*.45],[W*(rx+.15),H*.54],[W*(rx+.17),H*.61]],p.mountain);
     // Far hedges, tiny cypresses, terraces.
     for(let i=0;i<18;i++){const x=W*(.43+i*.034);tree(c,x,H*(.584+Math.sin(i*3)*.014),.21+(i%3)*.035,'pine',p);}
     const fieldX=W*(mobile?.025:.067),fieldY=H*(mobile?.792:.786),fieldW=W*(mobile?.28:.18),fieldH=H*(mobile?.1:.1);
